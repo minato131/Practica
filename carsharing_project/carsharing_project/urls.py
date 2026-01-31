@@ -4,7 +4,10 @@ from django.conf import settings
 from django.conf.urls.static import static
 
 urlpatterns = [
-    path('admin/', admin.site.urls),
+    # Стандартная админка Django
+    path('django-admin/', admin.site.urls),
+
+    # Наши кастомные URL
     path('', include('cars.urls')),
 ]
 

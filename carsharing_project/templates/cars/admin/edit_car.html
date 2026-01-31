@@ -1,0 +1,301 @@
+{% extends 'base.html' %}
+{% load crispy_forms_tags %}
+
+{% block title %}Редактирование автомобиля - Каршеринг{% endblock %}
+
+{% block content %}
+<div class="container py-5">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1><i class="bi bi-pencil-square"></i> Редактирование автомобиля</h1>
+        <div>
+            <a href="{% url 'car_detail' car.id %}" class="btn btn-outline-primary me-2">
+                <i class="bi bi-eye"></i> Просмотр
+            </a>
+            <a href="{% url 'manage_cars' %}" class="btn btn-outline-secondary">
+                <i class="bi bi-arrow-left"></i> Назад
+            </a>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-lg-8">
+            <div class="card shadow">
+                <div class="card-header bg-warning text-white">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <h4 class="mb-0">Редактирование: {{ car.brand }} {{ car.model }}</h4>
+                        <span class="badge bg-light text-dark fs-6">
+                            {{ car.status.name }}
+                        </span>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <!-- Текущее изображение -->
+                    {% if car.image %}
+                        <div class="mb-4 text-center">
+                            <p class="fw-bold">Текущее изображение:</p>
+                            <img src="{{ car.image.url }}" class="img-fluid rounded"
+                                 alt="{{ car.brand }} {{ car.model }}"
+                                 style="max-height: 200px;">
+                            <div class="mt-2">
+                                <a href="{{ car.image.url }}" target="_blank" class="btn btn-sm btn-outline-info">
+                                    <i class="bi bi-zoom-in"></i> Увеличить
+                                </a>
+                            </div>
+                        </div>
+                    {% endif %}
+
+                    <!-- Форма редактирования -->
+                    <form method="post" enctype="multipart/form-data">
+                        {% csrf_token %}
+
+                        <div class="row g-3">
+                            <!-- Основная информация -->
+                            <div class="col-md-6">
+                                {{ form.brand|as_crispy_field }}
+                            </div>
+                            <div class="col-md-6">
+                                {{ form.model|as_crispy_field }}
+                            </div>
+
+                            <div class="col-md-4">
+                                {{ form.year|as_crispy_field }}
+                            </div>
+                            <div class="col-md-4">
+                                {{ form.transmission|as_crispy_field }}
+                            </div>
+                            <div class="col-md-4">
+                                {{ form.engine_type|as_crispy_field }}
+                            </div>
+
+                            <!-- Цены -->
+                            <div class="col-md-6">
+                                {{ form.price_per_hour|as_crispy_field }}
+                            </div>
+                            <div class="col-md-6">
+                                {{ form.price_per_day|as_crispy_field }}
+                            </div>
+
+                            <!-- Категория и пробег -->
+                            <div class="col-md-6">
+                                {{ form.category|as_crispy_field }}
+                            </div>
+                            <div class="col-md-6">
+                                {{ form.mileage_limit|as_crispy_field }}
+                            </div>
+
+                            <!-- Адрес -->
+                            <div class="col-12">
+                                {{ form.address|as_crispy_field }}
+                            </div>
+
+                            <!-- Изображение -->
+                            <div class="col-12">
+                                <div class="mb-3">
+                                    <label class="form-label">Новое изображение (необязательно)</label>
+                                    <input type="file" name="image" class="form-control"
+                                           accept="image/*" id="id_image">
+                                    <div class="form-text">
+                                        Оставьте пустым, чтобы сохранить текущее изображение.
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Описание -->
+                            <div class="col-12">
+                                {{ form.description|as_crispy_field }}
+                            </div>
+
+                            <!-- Статус автомобиля -->
+                            <div class="col-12">
+                                <div class="mb-3">
+                                    <label class="form-label">Текущий статус</label>
+                                    <div class="alert alert-{% if car.status.name == 'доступен' %}success
+                                    {% elif car.status.name == 'забронирован' %}primary
+                                    {% elif car.status.name == 'недоступен' %}danger
+                                    {% else %}warning{% endif %}">
+                                        <i class="bi bi-info-circle"></i>
+                                        <strong>Статус:</strong> {{ car.status.name }}
+                                        {% if car.status.name == 'забронирован' %}
+                                            <br>
+                                            <small>
+                                                Чтобы изменить статус, перейдите в
+                                                <a href="{% url 'manage_bookings' %}" class="alert-link">
+                                                    управление бронированиями
+                                                </a>
+                                            </small>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="d-grid gap-2 d-md-flex justify-content-md-end mt-4">
+                            <button type="submit" class="btn btn-warning btn-lg">
+                                <i class="bi bi-check-circle"></i> Сохранить изменения
+                            </button>
+                            <a href="{% url 'delete_car' car.id %}" class="btn btn-outline-danger">
+                                <i class="bi bi-trash"></i> Удалить
+                            </a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <!-- Боковая панель с информацией -->
+        <div class="col-lg-4">
+            <!-- Статистика автомобиля -->
+            <div class="card shadow">
+                <div class="card-header bg-info text-white">
+                    <h5 class="mb-0"><i class="bi bi-graph-up"></i> Статистика автомобиля</h5>
+                </div>
+                <div class="card-body">
+                    <div class="text-center mb-3">
+                        <i class="bi bi-car-front" style="font-size: 3rem; color: #0dcaf0;"></i>
+                        <h4 class="mt-2">{{ car.brand }} {{ car.model }}</h4>
+                        <p class="text-muted">{{ car.year }} год</p>
+                    </div>
+
+                    <div class="row text-center">
+                        <div class="col-6 mb-3">
+                            <div class="p-3 border rounded">
+                                <h5 class="mb-0">{{ car.bookings.count }}</h5>
+                                <small class="text-muted">Бронирований</small>
+                            </div>
+                        </div>
+                        <div class="col-6 mb-3">
+                            <div class="p-3 border rounded">
+                                <h5 class="mb-0">
+                                    {% with total=car.bookings.all|length %}
+                                        {% if total > 0 %}
+                                            {{ car.bookings.filter.status__name='завершено'|length|add:0 }}
+                                        {% else %}
+                                            0
+                                        {% endif %}
+                                    {% endwith %}
+                                </h5>
+                                <small class="text-muted">Завершено</small>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Информация о партнере -->
+                    <hr>
+                    <h6>Владелец:</h6>
+                    <div class="d-flex align-items-center">
+                        <i class="bi bi-person-circle fs-4 me-3"></i>
+                        <div>
+                            <p class="mb-0">{{ car.partner.get_full_name|default:car.partner.email }}</p>
+                            <small class="text-muted">Партнер</small>
+                        </div>
+                    </div>
+
+                    <!-- Даты -->
+                    <hr>
+                    <div>
+                        <p class="mb-1"><small>Добавлен:</small></p>
+                        <p class="mb-0">{{ car.created_at|date:"d.m.Y H:i" }}</p>
+                    </div>
+                    <div class="mt-2">
+                        <p class="mb-1"><small>Обновлен:</small></p>
+                        <p class="mb-0">{{ car.updated_at|date:"d.m.Y H:i" }}</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Предупреждения -->
+            <div class="card shadow mt-4">
+                <div class="card-header bg-warning text-white">
+                    <h5 class="mb-0"><i class="bi bi-exclamation-triangle"></i> Внимание</h5>
+                </div>
+                <div class="card-body">
+                    <div class="alert alert-warning">
+                        <i class="bi bi-info-circle"></i>
+                        <strong>Изменение цен</strong>
+                        <p class="mb-0 mt-2">
+                            При изменении цены она будет применяться только к новым бронированиям.
+                            Существующие бронирования сохранят старую цену.
+                        </p>
+                    </div>
+
+                    <div class="alert alert-info">
+                        <i class="bi bi-lightbulb"></i>
+                        <strong>Совет</strong>
+                        <p class="mb-0 mt-2">
+                            Регулярно обновляйте фотографии автомобиля для привлечения большего
+                            количества клиентов.
+                        </p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Быстрые действия -->
+            <div class="card shadow mt-4">
+                <div class="card-body">
+                    <h6><i class="bi bi-lightning"></i> Быстрые действия</h6>
+                    <div class="d-grid gap-2">
+                        <a href="{% url 'car_detail' car.id %}" class="btn btn-outline-primary">
+                            <i class="bi bi-eye"></i> Просмотр для клиентов
+                        </a>
+                        {% if car.bookings.exists %}
+                            <a href="{% url 'manage_bookings' %}?car={{ car.id }}" class="btn btn-outline-info">
+                                <i class="bi bi-calendar-check"></i> Бронирования этого авто
+                            </a>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Валидация года
+    const yearInput = document.getElementById('id_year');
+    if (yearInput) {
+        const currentYear = new Date().getFullYear();
+        yearInput.max = currentYear;
+        yearInput.min = 2000;
+    }
+
+    // Валидация цен
+    const pricePerHour = document.getElementById('id_price_per_hour');
+    const pricePerDay = document.getElementById('id_price_per_day');
+
+    if (pricePerHour && pricePerDay) {
+        pricePerHour.addEventListener('change', function() {
+            const hourPrice = parseFloat(this.value) || 0;
+            if (hourPrice <= 0) {
+                alert('Цена за час должна быть больше 0');
+                this.value = '';
+            }
+        });
+
+        pricePerDay.addEventListener('change', function() {
+            const dayPrice = parseFloat(this.value) || 0;
+            if (dayPrice <= 0) {
+                alert('Цена за сутки должна быть больше 0');
+                this.value = '';
+            }
+        });
+    }
+
+    // Подтверждение удаления изображения
+    const imageInput = document.getElementById('id_image');
+    const clearImageCheckbox = document.getElementById('clear_image');
+
+    if (clearImageCheckbox) {
+        clearImageCheckbox.addEventListener('change', function() {
+            if (this.checked) {
+                if (!confirm('Вы уверены, что хотите удалить текущее изображение? Это действие нельзя отменить.')) {
+                    this.checked = false;
+                }
+            }
+        });
+    }
+});
+</script>
+{% endblock %}
+{% endblock %}

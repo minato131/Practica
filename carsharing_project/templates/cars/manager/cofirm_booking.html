@@ -1,0 +1,76 @@
+{% extends 'base.html' %}
+
+{% block title %}Подтверждение бронирования - Менеджер{% endblock %}
+
+{% block content %}
+<div class="container py-5">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card shadow">
+                <div class="card-header bg-success text-white">
+                    <h4 class="mb-0"><i class="bi bi-check-circle"></i> Подтверждение бронирования</h4>
+                </div>
+                <div class="card-body">
+                    <!-- Информация о бронировании -->
+                    <div class="card mb-4">
+                        <div class="card-body">
+                            <h5>Бронирование #{{ booking.id }}</h5>
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <p><strong>Клиент:</strong><br>
+                                        {{ booking.client.get_full_name|default:booking.client.email }}<br>
+                                        {{ booking.client.phone|default:"Телефон не указан" }}
+                                    </p>
+                                    <p><strong>Даты аренды:</strong><br>
+                                        Начало: {{ booking.start_date|date:"d.m.Y H:i" }}<br>
+                                        Окончание: {{ booking.end_date|date:"d.m.Y H:i" }}
+                                    </p>
+                                </div>
+                                <div class="col-md-6">
+                                    <p><strong>Автомобиль:</strong><br>
+                                        {{ booking.car.brand }} {{ booking.car.model }} ({{ booking.car.year }})<br>
+                                        {{ booking.car.address|default:"Адрес не указан" }}
+                                    </p>
+                                    <p><strong>Стоимость:</strong><br>
+                                        <span class="h5">{{ booking.calculated_price }} ₽</span>
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Форма подтверждения -->
+                    <form method="post">
+                        {% csrf_token %}
+                        
+                        <div class="mb-4">
+                            <label for="notes" class="form-label">Примечания (необязательно)</label>
+                            <textarea class="form-control" id="notes" name="notes" rows="3" 
+                                      placeholder="Дополнительная информация для клиента..."></textarea>
+                        </div>
+                        
+                        <div class="alert alert-info">
+                            <i class="bi bi-info-circle"></i>
+                            <strong>Что произойдет после подтверждения:</strong>
+                            <ul class="mb-0 mt-2">
+                                <li>Статус бронирования изменится на "Активно"</li>
+                                <li>Автомобиль будет отмечен как "Забронирован"</li>
+                                <li>Клиент получит уведомление о подтверждении</li>
+                            </ul>
+                        </div>
+                        
+                        <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+                            <button type="submit" class="btn btn-success btn-lg">
+                                <i class="bi bi-check-circle"></i> Подтвердить бронирование
+                            </button>
+                            <a href="{% url 'manager_bookings' %}" class="btn btn-outline-secondary">
+                                <i class="bi bi-x-circle"></i> Отмена
+                            </a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

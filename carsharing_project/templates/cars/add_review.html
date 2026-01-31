@@ -1,0 +1,183 @@
+{% extends 'base.html' %}
+{% load crispy_forms_tags %}
+
+{% block title %}Оставить отзыв - Каршеринг{% endblock %}
+
+{% block content %}
+<div class="container py-5">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card shadow">
+                <div class="card-header bg-success text-white">
+                    <h4 class="mb-0"><i class="bi bi-chat-left-text"></i> Оставить отзыв</h4>
+                </div>
+                <div class="card-body">
+                    <!-- Информация о бронировании -->
+                    <div class="card mb-4">
+                        <div class="card-body">
+                            <h5>Бронирование #{{ booking.id }}</h5>
+                            <p class="mb-1">{{ booking.car.brand }} {{ booking.car.model }}</p>
+                            <p class="mb-0 text-muted">
+                                {{ booking.start_date|date:"d.m.Y H:i" }} - {{ booking.end_date|date:"d.m.Y H:i" }}
+                            </p>
+                        </div>
+                    </div>
+                    
+                    <!-- Форма отзыва -->
+                    <form method="post">
+                        {% csrf_token %}
+                        
+                        <!-- Общая оценка -->
+                        <div class="mb-4">
+                            <label class="form-label">Общая оценка *</label>
+                            <div class="rating-stars mb-2">
+                                {% for i in "12345" %}
+                                    <button type="button" class="btn btn-link p-0 me-2 star-btn" 
+                                            data-value="{{ forloop.counter }}">
+                                        <i class="bi bi-star" style="font-size: 2rem;"></i>
+                                    </button>
+                                {% endfor %}
+                            </div>
+                            <input type="hidden" name="rating" id="id_rating" value="5" required>
+                            <small class="text-muted">Нажмите на звезду для выбора оценки</small>
+                        </div>
+                        
+                        <!-- Комментарий -->
+                        <div class="mb-4">
+                            {{ form.comment|as_crispy_field }}
+                        </div>
+                        
+                        <!-- Дополнительные оценки -->
+                        <div class="row mb-4">
+                            <div class="col-md-6">
+                                <label class="form-label">Оценка автомобиля (опционально)</label>
+                                <div class="rating-stars mb-2">
+                                    {% for i in "12345" %}
+                                        <button type="button" class="btn btn-link p-0 me-1 car-star-btn" 
+                                                data-value="{{ forloop.counter }}">
+                                            <i class="bi bi-star"></i>
+                                        </button>
+                                    {% endfor %}
+                                </div>
+                                <input type="hidden" name="car_rating" id="id_car_rating">
+                            </div>
+                            
+                            <div class="col-md-6">
+                                <label class="form-label">Оценка партнера (опционально)</label>
+                                <div class="rating-stars mb-2">
+                                    {% for i in "12345" %}
+                                        <button type="button" class="btn btn-link p-0 me-1 partner-star-btn" 
+                                                data-value="{{ forloop.counter }}">
+                                            <i class="bi bi-star"></i>
+                                        </button>
+                                    {% endfor %}
+                                </div>
+                                <input type="hidden" name="partner_rating" id="id_partner_rating">
+                            </div>
+                        </div>
+                        
+                        <div class="d-grid gap-2">
+                            <button type="submit" class="btn btn-success btn-lg">
+                                <i class="bi bi-check-circle"></i> Отправить отзыв
+                            </button>
+                            <a href="{% url 'booking_detail' booking.id %}" class="btn btn-outline-secondary">
+                                <i class="bi bi-arrow-left"></i> Назад
+                            </a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Общая оценка
+    const stars = document.querySelectorAll('.star-btn');
+    const ratingInput = document.getElementById('id_rating');
+    
+    stars.forEach(star => {
+        star.addEventListener('click', function() {
+            const value = this.getAttribute('data-value');
+            ratingInput.value = value;
+            
+            // Обновляем отображение звезд
+            stars.forEach((s, index) => {
+                const starIcon = s.querySelector('i');
+                if (index < value) {
+                    starIcon.className = 'bi bi-star-fill';
+                    starIcon.style.color = '#ffc107';
+                } else {
+                    starIcon.className = 'bi bi-star';
+                    starIcon.style.color = '';
+                }
+            });
+        });
+    });
+    
+    // Изначально заполняем 5 звезд
+    stars[4].click();
+    
+    // Оценка автомобиля
+    const carStars = document.querySelectorAll('.car-star-btn');
+    const carRatingInput = document.getElementById('id_car_rating');
+    
+    carStars.forEach(star => {
+        star.addEventListener('click', function() {
+            const value = this.getAttribute('data-value');
+            carRatingInput.value = value;
+            
+            carStars.forEach((s, index) => {
+                const starIcon = s.querySelector('i');
+                if (index < value) {
+                    starIcon.className = 'bi bi-star-fill';
+                    starIcon.style.color = '#ffc107';
+                } else {
+                    starIcon.className = 'bi bi-star';
+                    starIcon.style.color = '';
+                }
+            });
+        });
+    });
+    
+    // Оценка партнера
+    const partnerStars = document.querySelectorAll('.partner-star-btn');
+    const partnerRatingInput = document.getElementById('id_partner_rating');
+    
+    partnerStars.forEach(star => {
+        star.addEventListener('click', function() {
+            const value = this.getAttribute('data-value');
+            partnerRatingInput.value = value;
+            
+            partnerStars.forEach((s, index) => {
+                const starIcon = s.querySelector('i');
+                if (index < value) {
+                    starIcon.className = 'bi bi-star-fill';
+                    starIcon.style.color = '#ffc107';
+                } else {
+                    starIcon.className = 'bi bi-star';
+                    starIcon.style.color = '';
+                }
+            });
+        });
+    });
+});
+</script>
+
+<style>
+.rating-stars button {
+    text-decoration: none;
+}
+.rating-stars i {
+    font-size: 2rem;
+    transition: color 0.2s;
+}
+.car-star-btn i,
+.partner-star-btn i {
+    font-size: 1.5rem;
+}
+</style>
+{% endblock %}
+{% endblock %}

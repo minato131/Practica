@@ -36,11 +36,20 @@ class User(AbstractUser):
     def get_role_display(self):
         if self.is_superuser:
             return 'Администратор'
-        elif self.is_staff:
+        elif self.is_staff and not self.is_superuser:
             return 'Менеджер'
         else:
             return 'Клиент'
 
+    @property
+    def is_manager(self):
+        """Проверяет, является ли пользователь менеджером"""
+        return self.is_staff and not self.is_superuser
+
+    @property
+    def is_client(self):
+        """Проверяет, является ли пользователь клиентом"""
+        return not self.is_staff and not self.is_superuser
 
 class TransmissionType(models.Model):
     name = models.CharField(max_length=50, unique=True)

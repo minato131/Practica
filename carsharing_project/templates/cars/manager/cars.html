@@ -1,0 +1,153 @@
+{% extends 'base.html' %}
+
+{% block title %}Просмотр автомобилей - Менеджер{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1><i class="bi bi-car-front"></i> Просмотр автомобилей</h1>
+        <div>
+            <a href="{% url 'manager_dashboard' %}" class="btn btn-outline-secondary">
+                <i class="bi bi-arrow-left"></i> Назад в панель
+            </a>
+        </div>
+    </div>
+    
+    <!-- Фильтры -->
+    <div class="card shadow-sm mb-4">
+        <div class="card-body">
+            <form method="get" class="row g-3">
+                <div class="col-md-4">
+                    <select class="form-select" name="status">
+                        <option value="all">Все статусы</option>
+                        {% for status in statuses %}
+                            <option value="{{ status.id }}" 
+                                    {% if selected_status == status.id|stringformat:"i" %}selected{% endif %}>
+                                {{ status.name }}
+                            </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                
+                <div class="col-md-4">
+                    <select class="form-select" name="category">
+                        <option value="all">Все категории</option>
+                        {% for category in categories %}
+                            <option value="{{ category.id }}" 
+                                    {% if selected_category == category.id|stringformat:"i" %}selected{% endif %}>
+                                {{ category.name }}
+                            </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                
+                <div class="col-md-4">
+                    <div class="d-grid gap-2 d-md-flex">
+                        <button type="submit" class="btn btn-primary">
+                            <i class="bi bi-filter"></i> Применить
+                        </button>
+                        <a href="{% url 'manager_cars' %}" class="btn btn-outline-secondary">
+                            Сбросить
+                        </a>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+    
+    <!-- Таблица автомобилей -->
+    <div class="card shadow">
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-hover">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Автомобиль</th>
+                            <th>Владелец</th>
+                            <th>Категория</th>
+                            <th>Цена/час</th>
+                            <th>Статус</th>
+                            <th>Дата добавления</th>
+                            <th>Действия</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for car in cars %}
+                            <tr>
+                                <td>
+                                    <div class="d-flex align-items-center">
+                                        {% if car.image %}
+                                            <img src="{{ car.image.url }}" alt="{{ car.brand }} {{ car.model }}" 
+                                                 class="rounded me-3" style="width: 60px; height: 40px; object-fit: cover;">
+                                        {% else %}
+                                            <div class="rounded bg-secondary me-3 d-flex align-items-center justify-content-center" 
+                                                 style="width: 60px; height: 40px;">
+                                                <i class="bi bi-car-front text-white"></i>
+                                            </div>
+                                        {% endif %}
+                                        <div>
+                                            <strong>{{ car.brand }} {{ car.model }}</strong><br>
+                                            <small class="text-muted">{{ car.year }} • {{ car.transmission.name }}</small>
+                                        </div>
+                                    </div>
+                                </td>
+                                <td>{{ car.partner.email|truncatechars:20 }}</td>
+                                <td>
+                                    {% if car.category %}
+                                        <span class="badge bg-info">{{ car.category.name }}</span>
+                                    {% else %}
+                                        <span class="text-muted">—</span>
+                                    {% endif %}
+                                </td>
+                                <td>{{ car.price_per_hour }} ₽</td>
+                                <td>
+                                    <span class="badge 
+                                        {% if car.status.name == 'доступен' %}bg-success
+                                        {% elif car.status.name == 'забронирован' %}bg-primary
+                                        {% elif car.status.name == 'недоступен' %}bg-danger
+                                        {% else %}bg-warning{% endif %}">
+                                        {{ car.status.name }}
+                                    </span>
+                                </td>
+                                <td>{{ car.created_at|date:"d.m.Y" }}</td>
+                                <td>
+                                    <div class="btn-group" role="group">
+                                        <a href="{% url 'car_detail' car.id %}" class="btn btn-sm btn-outline-primary" 
+                                           title="Просмотр">
+                                            <i class="bi bi-eye"></i>
+                                        </a>
+                                    </div>
+                                </td>
+                            </tr>
+                        {% empty %}
+                            <tr>
+                                <td colspan="7" class="text-center py-4">
+                                    <i class="bi bi-car-front" style="font-size: 3rem; color: #ccc;"></i>
+                                    <h5 class="mt-3">Автомобили не найдены</h5>
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            
+            <!-- Статистика -->
+            {% if cars %}
+                <div class="mt-3 pt-3 border-top">
+                    <div class="row">
+                        <div class="col-md-4">
+                            <small class="text-muted">Всего автомобилей: {{ total_cars }}</small>
+                        </div>
+                        <div class="col-md-4">
+                            <small class="text-muted">Доступно: {{ available_count }}</small>
+                        </div>
+                        <div class="col-md-4">
+                            <small class="text-muted">Забронировано: {{ booked_count }}</small>
+                        </div>
+                    </div>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

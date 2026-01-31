@@ -1,0 +1,204 @@
+{% extends 'base.html' %}
+
+{% block title %}Бронирование #{{ booking.id }} - Каршеринг{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <!-- Хлебные крошки -->
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="{% url 'home' %}">Главная</a></li>
+            <li class="breadcrumb-item"><a href="{% url 'my_bookings' %}">Мои бронирования</a></li>
+            <li class="breadcrumb-item active">Бронирование #{{ booking.id }}</li>
+        </ol>
+    </nav>
+    
+    <div class="row">
+        <!-- Основная информация -->
+        <div class="col-lg-8">
+            <div class="card shadow-sm mb-4">
+                <div class="card-header bg-primary text-white">
+                    <h3 class="mb-0">Бронирование #{{ booking.id }}</h3>
+                </div>
+                <div class="card-body">
+                    <!-- Статус -->
+                    <div class="mb-4">
+                        <span class="badge 
+                            {% if booking.status.name == 'активно' %}bg-success
+                            {% elif booking.status.name == 'подтверждено' %}bg-primary
+                            {% elif booking.status.name == 'завершено' %}bg-secondary
+                            {% elif booking.status.name == 'отменено' %}bg-danger
+                            {% else %}bg-warning{% endif %} fs-5">
+                            {{ booking.status.name|upper }}
+                        </span>
+                    </div>
+                    
+                    <!-- Автомобиль -->
+                    <div class="row mb-4">
+                        <div class="col-md-4">
+                            {% if booking.car.image %}
+                                <img src="{{ booking.car.image.url }}" class="img-fluid rounded" 
+                                     alt="{{ booking.car.brand }} {{ booking.car.model }}">
+                            {% else %}
+                                <img src="https://via.placeholder.com/300x200/cccccc/969696?text=No+Image" 
+                                     class="img-fluid rounded" alt="No image">
+                            {% endif %}
+                        </div>
+                        <div class="col-md-8">
+                            <h4>{{ booking.car.brand }} {{ booking.car.model }}</h4>
+                            <p><i class="bi bi-calendar"></i> {{ booking.car.year }} год</p>
+                            <p><i class="bi bi-gear"></i> {{ booking.car.transmission.name }}</p>
+                            <p><i class="bi bi-geo-alt"></i> {{ booking.car.address|default:"Адрес не указан" }}</p>
+                        </div>
+                    </div>
+                    
+                    <!-- Даты -->
+                    <div class="row mb-4">
+                        <div class="col-md-6">
+                            <div class="card">
+                                <div class="card-body text-center">
+                                    <h5 class="card-title">Начало</h5>
+                                    <h3 class="text-primary">{{ booking.start_date|date:"d.m.Y" }}</h3>
+                                    <p class="mb-0">{{ booking.start_date|date:"H:i" }}</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="card">
+                                <div class="card-body text-center">
+                                    <h5 class="card-title">Окончание</h5>
+                                    <h3 class="text-primary">{{ booking.end_date|date:"d.m.Y" }}</h3>
+                                    <p class="mb-0">{{ booking.end_date|date:"H:i" }}</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Пробег -->
+                    {% if booking.start_mileage or booking.end_mileage %}
+                        <div class="mb-4">
+                            <h5>Пробег</h5>
+                            <div class="row">
+                                <div class="col-6">
+                                    <p>Начальный: <strong>{{ booking.start_mileage|default:"-" }} км</strong></p>
+                                </div>
+                                <div class="col-6">
+                                    <p>Конечный: <strong>{{ booking.end_mileage|default:"-" }} км</strong></p>
+                                </div>
+                            </div>
+                        </div>
+                    {% endif %}
+                    
+                    <!-- Отзыв -->
+                    {% if booking.review %}
+                        <div class="mt-4 pt-4 border-top">
+                            <h5>Ваш отзыв</h5>
+                            <div class="card bg-light">
+                                <div class="card-body">
+                                    <div class="d-flex justify-content-between mb-2">
+                                        <div class="text-warning">
+                                            {% for i in "12345" %}
+                                                {% if forloop.counter <= booking.review.rating %}
+                                                    <i class="bi bi-star-fill"></i>
+                                                {% else %}
+                                                    <i class="bi bi-star"></i>
+                                                {% endif %}
+                                            {% endfor %}
+                                        </div>
+                                        <small class="text-muted">{{ booking.review.created_at|date:"d.m.Y H:i" }}</small>
+                                    </div>
+                                    <p>{{ booking.review.comment }}</p>
+                                </div>
+                            </div>
+                        </div>
+                    {% elif can_review %}
+                        <div class="mt-4">
+                            <a href="{% url 'add_review' booking.id %}" class="btn btn-success">
+                                <i class="bi bi-chat-left-text"></i> Оставить отзыв
+                            </a>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        
+        <!-- Боковая панель -->
+        <div class="col-lg-4">
+            <!-- Стоимость -->
+            <div class="card shadow-sm mb-4">
+                <div class="card-header bg-success text-white">
+                    <h5 class="mb-0">Стоимость</h5>
+                </div>
+                <div class="card-body">
+                    <div class="mb-3">
+                        <p class="mb-1">Расчетная стоимость:</p>
+                        <h4 class="text-primary">{{ booking.calculated_price }} ₽</h4>
+                    </div>
+                    
+                    {% if booking.final_price and booking.final_price != booking.calculated_price %}
+                        <div class="mb-3">
+                            <p class="mb-1">Финальная стоимость:</p>
+                            <h4 class="text-success">{{ booking.final_price }} ₽</h4>
+                        </div>
+                    {% endif %}
+                    
+                    {% if payments %}
+                        <hr>
+                        <h6>Платежи:</h6>
+                        {% for payment in payments %}
+                            <div class="mb-2">
+                                <small>{{ payment.payment_date|date:"d.m.Y H:i" }}</small><br>
+                                <strong>{{ payment.amount }} ₽</strong> 
+                                <span class="badge bg-info">{{ payment.payment_type.name }}</span>
+                                <span class="badge 
+                                    {% if payment.status.name == 'успешен' %}bg-success
+                                    {% elif payment.status.name == 'ожидает' %}bg-warning
+                                    {% else %}bg-danger{% endif %}">
+                                    {{ payment.status.name }}
+                                </span>
+                            </div>
+                        {% endfor %}
+                    {% endif %}
+                </div>
+            </div>
+            
+            <!-- Действия -->
+            <div class="card shadow-sm">
+                <div class="card-header">
+                    <h5 class="mb-0">Действия</h5>
+                </div>
+                <div class="card-body">
+                    <div class="d-grid gap-2">
+                        <a href="{% url 'car_detail' booking.car.id %}" class="btn btn-outline-primary">
+                            <i class="bi bi-car-front"></i> К автомобилю
+                        </a>
+                        
+                        {% if booking.status.name == 'подтверждено' or booking.status.name == 'активно' %}
+                            <form method="post" action="{% url 'cancel_booking' booking.id %}">
+                                {% csrf_token %}
+                                <button type="submit" class="btn btn-outline-danger" 
+                                        onclick="return confirm('Вы уверены, что хотите отменить бронирование?')">
+                                    <i class="bi bi-x-circle"></i> Отменить бронирование
+                                </button>
+                            </form>
+                        {% endif %}
+                        
+                        <a href="{% url 'my_bookings' %}" class="btn btn-outline-secondary">
+                            <i class="bi bi-arrow-left"></i> Назад к списку
+                        </a>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Информация о создании -->
+            <div class="card shadow-sm mt-4">
+                <div class="card-body">
+                    <h6>Информация о бронировании</h6>
+                    <p class="mb-1"><small>Создано:</small><br>{{ booking.created_at|date:"d.m.Y H:i" }}</p>
+                    <p class="mb-0"><small>Обновлено:</small><br>{{ booking.updated_at|date:"d.m.Y H:i" }}</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

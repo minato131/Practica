@@ -25,9 +25,46 @@ class CarForm(forms.ModelForm):
                   'description', 'price_per_hour', 'price_per_day', 'mileage_limit',
                   'category', 'address', 'image']
         widgets = {
-            'description': forms.Textarea(attrs={'rows': 4}),
+            'description': forms.Textarea(attrs={'rows': 4, 'placeholder': 'Опишите особенности автомобиля...'}),
             'year': forms.NumberInput(attrs={'min': 2000, 'max': datetime.datetime.now().year}),
+            'price_per_hour': forms.NumberInput(attrs={'step': '0.01', 'min': '0'}),
+            'price_per_day': forms.NumberInput(attrs={'step': '0.01', 'min': '0'}),
+            'mileage_limit': forms.NumberInput(attrs={'min': '0', 'placeholder': 'Оставьте пустым для безлимита'}),
+            'address': forms.TextInput(attrs={'placeholder': 'Например: Москва, ул. Тверская, д. 10'}),
         }
+        labels = {
+            'brand': 'Марка',
+            'model': 'Модель',
+            'year': 'Год выпуска',
+            'transmission': 'Трансмиссия',
+            'engine_type': 'Тип двигателя',
+            'description': 'Описание',
+            'price_per_hour': 'Цена в час (₽)',
+            'price_per_day': 'Цена в сутки (₽)',
+            'mileage_limit': 'Лимит пробега (км/сутки)',
+            'category': 'Категория',
+            'address': 'Адрес',
+            'image': 'Фотография автомобиля',
+        }
+
+    def clean_price_per_hour(self):
+        price = self.cleaned_data.get('price_per_hour')
+        if price <= 0:
+            raise ValidationError('Цена должна быть больше 0')
+        return price
+
+    def clean_price_per_day(self):
+        price = self.cleaned_data.get('price_per_day')
+        if price <= 0:
+            raise ValidationError('Цена должна быть больше 0')
+        return price
+
+    def clean_year(self):
+        year = self.cleaned_data.get('year')
+        current_year = datetime.datetime.now().year
+        if year < 2000 or year > current_year:
+            raise ValidationError(f'Год должен быть между 2000 и {current_year}')
+        return year
 
 
 class BookingForm(forms.ModelForm):
@@ -58,13 +95,32 @@ class BookingForm(forms.ModelForm):
             if start_date < datetime.datetime.now():
                 raise ValidationError('Нельзя бронировать на прошедшую дату')
 
+            # Минимальная аренда - 1 час
+            duration = end_date - start_date
+            if duration.total_seconds() < 3600:
+                raise ValidationError('Минимальное время аренды - 1 час')
+
         return cleaned_data
 
 
 class ReviewForm(forms.ModelForm):
+    rating = forms.IntegerField(
+        min_value=1,
+        max_value=5,
+        widget=forms.HiddenInput(),
+        initial=5
+    )
+
     class Meta:
         model = Review
         fields = ['rating', 'comment', 'car_rating', 'partner_rating']
         widgets = {
             'comment': forms.Textarea(attrs={'rows': 4, 'placeholder': 'Оставьте ваш отзыв...'}),
+            'car_rating': forms.HiddenInput(),
+            'partner_rating': forms.HiddenInput(),
+        }
+        labels = {
+            'comment': 'Комментарий',
+            'car_rating': 'Оценка автомобиля',
+            'partner_rating': 'Оценка партнера',
         }

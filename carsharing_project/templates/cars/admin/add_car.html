@@ -1,0 +1,201 @@
+{% extends 'base.html' %}
+{% load crispy_forms_tags %}
+
+{% block title %}Добавление автомобиля - Каршеринг{% endblock %}
+
+{% block content %}
+<div class="container py-5">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1><i class="bi bi-plus-circle"></i> Добавление автомобиля</h1>
+        <a href="{% url 'manage_cars' %}" class="btn btn-outline-secondary">
+            <i class="bi bi-arrow-left"></i> Назад к списку
+        </a>
+    </div>
+
+    <div class="row">
+        <div class="col-lg-8">
+            <div class="card shadow">
+                <div class="card-header bg-primary text-white">
+                    <h4 class="mb-0">Информация об автомобиле</h4>
+                </div>
+                <div class="card-body">
+                    <form method="post" enctype="multipart/form-data">
+                        {% csrf_token %}
+
+                        <div class="row g-3">
+                            <!-- Основная информация -->
+                            <div class="col-md-6">
+                                {{ form.brand|as_crispy_field }}
+                            </div>
+                            <div class="col-md-6">
+                                {{ form.model|as_crispy_field }}
+                            </div>
+
+                            <div class="col-md-4">
+                                {{ form.year|as_crispy_field }}
+                            </div>
+                            <div class="col-md-4">
+                                {{ form.transmission|as_crispy_field }}
+                            </div>
+                            <div class="col-md-4">
+                                {{ form.engine_type|as_crispy_field }}
+                            </div>
+
+                            <!-- Цены -->
+                            <div class="col-md-6">
+                                {{ form.price_per_hour|as_crispy_field }}
+                            </div>
+                            <div class="col-md-6">
+                                {{ form.price_per_day|as_crispy_field }}
+                            </div>
+
+                            <!-- Категория и пробег -->
+                            <div class="col-md-6">
+                                {{ form.category|as_crispy_field }}
+                            </div>
+                            <div class="col-md-6">
+                                {{ form.mileage_limit|as_crispy_field }}
+                            </div>
+
+                            <!-- Адрес -->
+                            <div class="col-12">
+                                {{ form.address|as_crispy_field }}
+                            </div>
+
+                            <!-- Изображение -->
+                            <div class="col-12">
+                                {{ form.image|as_crispy_field }}
+                                <div class="form-text">
+                                    Рекомендуемый размер: 800x600px. Форматы: JPG, PNG, WebP.
+                                </div>
+                            </div>
+
+                            <!-- Описание -->
+                            <div class="col-12">
+                                {{ form.description|as_crispy_field }}
+                            </div>
+                        </div>
+
+                        <div class="d-grid gap-2 d-md-flex justify-content-md-end mt-4">
+                            <button type="submit" class="btn btn-primary btn-lg">
+                                <i class="bi bi-check-circle"></i> Добавить автомобиль
+                            </button>
+                            <a href="{% url 'manage_cars' %}" class="btn btn-outline-secondary">
+                                <i class="bi bi-x-circle"></i> Отмена
+                            </a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <!-- Боковая панель с подсказками -->
+        <div class="col-lg-4">
+            <div class="card shadow">
+                <div class="card-header bg-info text-white">
+                    <h5 class="mb-0"><i class="bi bi-info-circle"></i> Полезная информация</h5>
+                </div>
+                <div class="card-body">
+                    <h6>Рекомендации по заполнению:</h6>
+                    <ul class="list-unstyled">
+                        <li class="mb-2">
+                            <i class="bi bi-check-circle text-success"></i>
+                            <strong>Марка и модель:</strong> Указывайте полное название
+                        </li>
+                        <li class="mb-2">
+                            <i class="bi bi-check-circle text-success"></i>
+                            <strong>Год выпуска:</strong> Точный год производства
+                        </li>
+                        <li class="mb-2">
+                            <i class="bi bi-check-circle text-success"></i>
+                            <strong>Цены:</strong> Устанавливайте конкурентноспособные тарифы
+                        </li>
+                        <li class="mb-2">
+                            <i class="bi bi-check-circle text-success"></i>
+                            <strong>Описание:</strong> Детально опишите особенности автомобиля
+                        </li>
+                        <li class="mb-2">
+                            <i class="bi bi-check-circle text-success"></i>
+                            <strong>Фотографии:</strong> Используйте качественные изображения
+                        </li>
+                    </ul>
+
+                    <hr>
+
+                    <h6>Примерные цены:</h6>
+                    <ul class="list-unstyled">
+                        <li><i class="bi bi-car-front text-primary"></i> Эконом класс: 200-400 ₽/час</li>
+                        <li><i class="bi bi-car-front text-primary"></i> Комфорт класс: 400-700 ₽/час</li>
+                        <li><i class="bi bi-car-front text-primary"></i> Бизнес класс: 700-1200 ₽/час</li>
+                        <li><i class="bi bi-car-front text-primary"></i> Премиум класс: от 1200 ₽/час</li>
+                    </ul>
+
+                    <hr>
+
+                    <div class="alert alert-warning">
+                        <i class="bi bi-exclamation-triangle"></i>
+                        <strong>Внимание!</strong> После добавления автомобиль будет автоматически
+                        доступен для бронирования. Убедитесь, что все данные верны.
+                    </div>
+                </div>
+            </div>
+
+            <!-- Быстрые ссылки -->
+            <div class="card shadow mt-4">
+                <div class="card-body">
+                    <h6><i class="bi bi-lightning"></i> Быстрые действия</h6>
+                    <div class="d-grid gap-2">
+                        <a href="{% url 'manage_cars' %}" class="btn btn-outline-primary">
+                            <i class="bi bi-list-ul"></i> Все автомобили
+                        </a>
+                        <a href="{% url 'admin_dashboard' %}" class="btn btn-outline-info">
+                            <i class="bi bi-speedometer2"></i> Панель управления
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Автоматическое заполнение года
+    const yearInput = document.getElementById('id_year');
+    if (!yearInput.value) {
+        const currentYear = new Date().getFullYear();
+        yearInput.value = currentYear;
+    }
+
+    // Подсказка для лимита пробега
+    const mileageInput = document.getElementById('id_mileage_limit');
+    if (mileageInput) {
+        mileageInput.placeholder = 'Например: 300 (км в сутки)';
+    }
+
+    // Валидация цен
+    const pricePerHour = document.getElementById('id_price_per_hour');
+    const pricePerDay = document.getElementById('id_price_per_day');
+
+    if (pricePerHour && pricePerDay) {
+        pricePerHour.addEventListener('change', function() {
+            const hourPrice = parseFloat(this.value) || 0;
+            if (hourPrice > 0 && (!pricePerDay.value || pricePerDay.value === '')) {
+                // Автоматически устанавливаем суточную цену (час * 20)
+                pricePerDay.value = Math.round(hourPrice * 20);
+            }
+        });
+
+        pricePerDay.addEventListener('change', function() {
+            const dayPrice = parseFloat(this.value) || 0;
+            const hourPrice = parseFloat(pricePerHour.value) || 0;
+            if (dayPrice > 0 && hourPrice > 0 && dayPrice < hourPrice * 10) {
+                alert('Суточная цена должна быть хотя бы в 10 раз больше часовой для привлекательности тарифа');
+            }
+        });
+    }
+});
+</script>
+{% endblock %}
+{% endblock %}

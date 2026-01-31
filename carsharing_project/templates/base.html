@@ -79,7 +79,11 @@
                         </li>
                         {% if user.is_superuser %}
                             <li class="nav-item">
-                                <a class="nav-link" href="{% url 'admin_dashboard' %}">Панель управления</a>
+                                <a class="nav-link" href="{% url 'admin_dashboard' %}">Панель администратора</a>
+                            </li>
+                        {% elif user.is_staff %}
+                            <li class="nav-item">
+                                <a class="nav-link" href="{% url 'manager_dashboard' %}">Панель менеджера</a>
                             </li>
                         {% endif %}
                     {% endif %}
@@ -90,6 +94,9 @@
                         <li class="nav-item dropdown">
                             <a class="nav-link dropdown-toggle" href="#" id="userDropdown" role="button" data-bs-toggle="dropdown">
                                 <i class="bi bi-person-circle"></i> {{ user.email }}
+                                <small class="text-muted">
+                                    ({% if user.is_superuser %}Админ{% elif user.is_staff %}Менеджер{% else %}Клиент{% endif %})
+                                </small>
                             </a>
                             <ul class="dropdown-menu">
                                 <li><a class="dropdown-item" href="{% url 'profile' %}">Профиль</a></li>
@@ -144,8 +151,12 @@
                     <h5>Быстрые ссылки</h5>
                     <ul class="list-unstyled">
                         <li><a href="{% url 'car_list' %}" class="text-white">Каталог авто</a></li>
-                        <li><a href="{% url 'login' %}" class="text-white">Вход в систему</a></li>
-                        <li><a href="{% url 'register' %}" class="text-white">Регистрация</a></li>
+                        {% if user.is_authenticated %}
+                            <li><a href="{% url 'my_bookings' %}" class="text-white">Мои бронирования</a></li>
+                        {% else %}
+                            <li><a href="{% url 'login' %}" class="text-white">Вход в систему</a></li>
+                            <li><a href="{% url 'register' %}" class="text-white">Регистрация</a></li>
+                        {% endif %}
                     </ul>
                 </div>
             </div>

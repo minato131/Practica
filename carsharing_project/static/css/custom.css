@@ -1,0 +1,64 @@
+/* Дополнительные стили */
+
+.car-card {
+    transition: all 0.3s ease;
+}
+
+.car-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+}
+
+.hero-section {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    padding: 80px 0;
+    margin-bottom: 50px;
+    border-radius: 0 0 30px 30px;
+}
+
+.rating-stars {
+    color: #ffc107;
+}
+
+/* Адаптивность для таблиц */
+@media (max-width: 768px) {
+    .table-responsive {
+        font-size: 0.9rem;
+    }
+
+    .btn-group .btn {
+        padding: 0.25rem 0.5rem;
+    }
+}
+
+/* Стили для карточек статистики */
+.stat-card {
+    border-left: 4px solid;
+}
+
+.border-left-primary {
+    border-left-color: #4e73df !important;
+}
+
+.border-left-success {
+    border-left-color: #1cc88a !important;
+}
+
+.border-left-info {
+    border-left-color: #36b9cc !important;
+}
+
+.border-left-warning {
+    border-left-color: #f6c23e !important;
+}
+
+/* Анимации */
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.fade-in {
+    animation: fadeIn 0.5s ease-out;
+}
