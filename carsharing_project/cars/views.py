@@ -8,6 +8,7 @@ from django.http import JsonResponse, HttpResponse
 import datetime
 from .models import *
 from .forms import *
+from decimal import Decimal
 
 
 # Главная страница
@@ -192,11 +193,17 @@ def book_car(request, car_id):
             duration = booking.end_date - booking.start_date
             hours = duration.total_seconds() / 3600
 
+            # ИСПРАВЛЕНИЕ 1: Преобразуем hours в Decimal для корректного умножения
+            hours_decimal = Decimal(str(hours))
+
             if hours <= 24:
-                price = car.price_per_hour * hours
+                # Умножаем Decimal на Decimal
+                price = car.price_per_hour * hours_decimal
             else:
                 days = hours / 24
-                price = car.price_per_day * days
+                # Преобразуем days в Decimal
+                days_decimal = Decimal(str(days))
+                price = car.price_per_day * days_decimal
 
             booking.calculated_price = round(price, 2)
 
@@ -232,9 +239,13 @@ def book_car(request, car_id):
                 payment_type = PaymentType.objects.get(name='предоплата')
                 payment_status = PaymentStatus.objects.get(name='ожидает')
 
+                # ИСПРАВЛЕНИЕ 2: Преобразуем для предоплаты
+                prepayment_percent = Decimal('0.3')  # Используем Decimal для процента
+                prepayment_amount = booking.calculated_price * prepayment_percent
+
                 Payment.objects.create(
                     booking=booking,
-                    amount=booking.calculated_price * 0.3,  # 30% предоплата
+                    amount=prepayment_amount,
                     payment_type=payment_type,
                     status=payment_status
                 )
@@ -252,7 +263,13 @@ def book_car(request, car_id):
                 for error in errors:
                     messages.error(request, f'{field}: {error}')
     else:
-        form = BookingForm()
+        # ИСПРАВЛЕНИЕ 3: Добавляем начальные значения для формы
+        initial_data = {
+            'car': car,
+            'start_date': timezone.now(),
+            'end_date': timezone.now() + timezone.timedelta(hours=1)
+        }
+        form = BookingForm(initial=initial_data)
 
     context = {
         'car': car,

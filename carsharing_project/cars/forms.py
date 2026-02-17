@@ -3,7 +3,7 @@ from django.contrib.auth.forms import UserCreationForm
 from .models import User, Car, Booking, Review
 from django.core.exceptions import ValidationError
 import datetime
-
+from django.utils import timezone
 
 class UserRegisterForm(UserCreationForm):
     email = forms.EmailField(label='Email')
@@ -92,7 +92,7 @@ class BookingForm(forms.ModelForm):
             if start_date >= end_date:
                 raise ValidationError('Дата окончания должна быть позже даты начала')
 
-            if start_date < datetime.datetime.now():
+            if start_date < timezone.now():
                 raise ValidationError('Нельзя бронировать на прошедшую дату')
 
             # Минимальная аренда - 1 час
