@@ -9,7 +9,11 @@ import datetime
 from .models import *
 from .forms import *
 from decimal import Decimal
-
+from django.contrib import messages
+from .forms import ReviewForm
+from .models import SupportChat, SupportMessage
+from .forms import SupportChatForm, SupportMessageForm
+from django.db.models import Q
 
 # Главная страница
 def home(request):
@@ -341,33 +345,169 @@ def cancel_booking(request, booking_id):
 # Профиль пользователя
 @login_required
 def profile(request):
+    user = request.user
+
     if request.method == 'POST':
-        user = request.user
+        # Обновляем данные пользователя
         user.first_name = request.POST.get('first_name', '')
         user.last_name = request.POST.get('last_name', '')
         user.phone = request.POST.get('phone', '')
         user.driver_license = request.POST.get('driver_license', '')
         user.save()
-
         messages.success(request, 'Профиль успешно обновлен')
         return redirect('profile')
 
-    # Статистика пользователя
+    # Статистика для пользователя
+    from django.db.models import Sum
+
     user_stats = {
-        'total_bookings': Booking.objects.filter(client=request.user).count(),
-        'active_bookings': Booking.objects.filter(
-            client=request.user,
-            status__name__in=['подтверждено', 'активно']
-        ).count(),
+        'total_bookings': Booking.objects.filter(client=user).count(),
+        'active_bookings': Booking.objects.filter(client=user, status__name='активно').count(),
         'total_spent': Booking.objects.filter(
-            client=request.user
-        ).aggregate(total=Sum('final_price'))['total'] or 0,
+            client=user,
+            status__name='завершено'
+        ).aggregate(Sum('calculated_price'))['calculated_price__sum'] or 0,
     }
 
     context = {
         'user_stats': user_stats,
     }
     return render(request, 'cars/profile.html', context)
+
+
+@login_required
+def support_chat_list(request):
+    """Список чатов поддержки"""
+    if request.user.is_staff:
+        # Админ видит все активные чаты
+        chats = SupportChat.objects.filter(is_closed=False).order_by('-updated_at')
+    else:
+        # Пользователь видит свои чаты
+        chats = SupportChat.objects.filter(user=request.user).order_by('-updated_at')
+
+    return render(request, 'support/chat_list.html', {'chats': chats})
+
+
+@login_required
+def support_chat_detail(request, chat_id):
+    """Детальная страница чата"""
+    if request.user.is_staff:
+        chat = get_object_or_404(SupportChat, id=chat_id)
+    else:
+        chat = get_object_or_404(SupportChat, id=chat_id, user=request.user)
+
+    # Помечаем сообщения как прочитанные
+    chat.messages.filter(is_read=False).exclude(sender=request.user).update(is_read=True)
+
+    if request.method == 'POST':
+        form = SupportMessageForm(request.POST)
+        if form.is_valid():
+            message = form.save(commit=False)
+            message.chat = chat
+            message.sender = request.user
+            message.save()
+
+            # Если это первое сообщение от админа, назначаем админа на чат
+            if request.user.is_staff and not chat.admin:
+                chat.admin = request.user
+                chat.save()
+
+            return redirect('support_chat_detail', chat_id=chat.id)
+    else:
+        form = SupportMessageForm()
+
+    messages_list = chat.messages.all()
+
+    return render(request, 'support/chat_detail.html', {
+        'chat': chat,
+        'messages': messages_list,
+        'form': form
+    })
+
+
+@login_required
+def support_create_chat(request):
+    """Создание нового чата"""
+    if request.method == 'POST':
+        form = SupportChatForm(request.POST)
+        if form.is_valid():
+            chat = form.save(commit=False)
+            chat.user = request.user
+            chat.save()
+
+            # Добавляем системное сообщение
+            SupportMessage.objects.create(
+                chat=chat,
+                sender=request.user,
+                message=f"Чат создан. Тема: {chat.subject}",
+                is_system=True
+            )
+
+            messages.success(request, 'Чат поддержки создан. Ожидайте ответа администратора.')
+            return redirect('support_chat_detail', chat_id=chat.id)
+    else:
+        form = SupportChatForm()
+
+    return render(request, 'support/create_chat.html', {'form': form})
+
+
+@login_required
+def support_close_chat(request, chat_id):
+    """Закрытие чата"""
+    if request.user.is_staff:
+        chat = get_object_or_404(SupportChat, id=chat_id)
+    else:
+        chat = get_object_or_404(SupportChat, id=chat_id, user=request.user)
+
+    if request.method == 'POST':
+        chat.is_closed = True
+        chat.is_active = False
+        chat.closed_at = timezone.now()
+        chat.save()
+
+        SupportMessage.objects.create(
+            chat=chat,
+            sender=request.user,
+            message="Чат закрыт",
+            is_system=True
+        )
+
+        messages.success(request, 'Чат закрыт')
+        return redirect('support_chat_list')
+
+    return render(request, 'support/close_chat.html', {'chat': chat})
+
+
+@login_required
+def add_review(request, booking_id):
+    """Добавление отзыва к завершенному бронированию"""
+    booking = get_object_or_404(Booking, id=booking_id, client=request.user)
+
+    # Проверяем, что бронирование завершено
+    if booking.status.name != 'завершено':
+        messages.error(request, 'Отзыв можно оставить только после завершения бронирования')
+        return redirect('booking_detail', booking_id=booking.id)
+
+    # Проверяем, нет ли уже отзыва
+    if hasattr(booking, 'review'):
+        messages.error(request, 'Вы уже оставили отзыв для этого бронирования')
+        return redirect('booking_detail', booking_id=booking.id)
+
+    if request.method == 'POST':
+        form = ReviewForm(request.POST)
+        if form.is_valid():
+            review = form.save(commit=False)
+            review.booking = booking
+            review.save()
+            messages.success(request, 'Спасибо за ваш отзыв!')
+            return redirect('car_detail', car_id=booking.car.id)
+    else:
+        form = ReviewForm()
+
+    return render(request, 'cars/add_review.html', {
+        'form': form,
+        'booking': booking
+    })
 
 
 # Добавление отзыва
@@ -866,3 +1006,140 @@ def manager_cars(request):
         'booked_count': booked_count,
     }
     return render(request, 'cars/manager/cars.html', context)
+
+
+@login_required
+def add_review(request, booking_id):
+    """Добавление отзыва к завершенному бронированию"""
+    booking = get_object_or_404(Booking, id=booking_id, client=request.user)
+
+    # Проверяем, что бронирование завершено
+    if booking.status.name != 'завершено':
+        messages.error(request, 'Отзыв можно оставить только после завершения бронирования')
+        return redirect('booking_detail', booking_id=booking.id)
+
+    # Проверяем, нет ли уже отзыва
+    if hasattr(booking, 'review'):
+        messages.error(request, 'Вы уже оставили отзыв для этого бронирования')
+        return redirect('booking_detail', booking_id=booking.id)
+
+    if request.method == 'POST':
+        form = ReviewForm(request.POST)
+        if form.is_valid():
+            review = form.save(commit=False)
+            review.booking = booking
+            review.save()
+            messages.success(request, 'Спасибо за ваш отзыв!')
+            return redirect('car_detail', car_id=booking.car.id)
+    else:
+        form = ReviewForm()
+
+    return render(request, 'cars/add_review.html', {
+        'form': form,
+        'booking': booking
+    })
+
+
+login_required
+
+
+def support_chat_list(request):
+    """Список чатов поддержки"""
+    if request.user.is_staff:
+        # Админ видит все активные чаты
+        chats = SupportChat.objects.filter(is_closed=False).order_by('-updated_at')
+    else:
+        # Пользователь видит свои чаты
+        chats = SupportChat.objects.filter(user=request.user).order_by('-updated_at')
+
+    return render(request, 'support/chat_list.html', {'chats': chats})
+
+
+@login_required
+def support_chat_detail(request, chat_id):
+    """Детальная страница чата"""
+    if request.user.is_staff:
+        chat = get_object_or_404(SupportChat, id=chat_id)
+    else:
+        chat = get_object_or_404(SupportChat, id=chat_id, user=request.user)
+
+    # Помечаем сообщения как прочитанные
+    chat.messages.filter(is_read=False).exclude(sender=request.user).update(is_read=True)
+
+    if request.method == 'POST':
+        form = SupportMessageForm(request.POST)
+        if form.is_valid():
+            message = form.save(commit=False)
+            message.chat = chat
+            message.sender = request.user
+            message.save()
+
+            # Если это первое сообщение от админа, назначаем админа на чат
+            if request.user.is_staff and not chat.admin:
+                chat.admin = request.user
+                chat.save()
+
+            return redirect('support_chat_detail', chat_id=chat.id)
+    else:
+        form = SupportMessageForm()
+
+    messages_list = chat.messages.all()
+
+    return render(request, 'support/chat_detail.html', {
+        'chat': chat,
+        'messages': messages_list,
+        'form': form
+    })
+
+
+@login_required
+def support_create_chat(request):
+    """Создание нового чата"""
+    if request.method == 'POST':
+        form = SupportChatForm(request.POST)
+        if form.is_valid():
+            chat = form.save(commit=False)
+            chat.user = request.user
+            chat.save()
+
+            # Добавляем системное сообщение
+            SupportMessage.objects.create(
+                chat=chat,
+                sender=request.user,
+                message=f"Чат создан. Тема: {chat.subject}",
+                is_system=True
+            )
+
+            messages.success(request, 'Чат поддержки создан. Ожидайте ответа администратора.')
+            return redirect('support_chat_detail', chat_id=chat.id)
+    else:
+        form = SupportChatForm()
+
+    return render(request, 'support/create_chat.html', {'form': form})
+
+
+@login_required
+def support_close_chat(request, chat_id):
+    """Закрытие чата"""
+    if request.user.is_staff:
+        chat = get_object_or_404(SupportChat, id=chat_id)
+    else:
+        chat = get_object_or_404(SupportChat, id=chat_id, user=request.user)
+
+    if request.method == 'POST':
+        chat.is_closed = True
+        chat.is_active = False
+        chat.closed_at = timezone.now()
+        chat.save()
+
+        SupportMessage.objects.create(
+            chat=chat,
+            sender=request.user,
+            message="Чат закрыт",
+            is_system=True
+        )
+
+        messages.success(request, 'Чат закрыт')
+        return redirect('support_chat_list')
+
+    return render(request, 'support/close_chat.html', {'chat': chat})

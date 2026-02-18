@@ -1,6 +1,6 @@
 from django import forms
 from django.contrib.auth.forms import UserCreationForm
-from .models import User, Car, Booking, Review
+from .models import User, Car, Booking, Review, SupportChat, SupportMessage
 from django.core.exceptions import ValidationError
 import datetime
 from django.utils import timezone
@@ -104,23 +104,45 @@ class BookingForm(forms.ModelForm):
 
 
 class ReviewForm(forms.ModelForm):
-    rating = forms.IntegerField(
-        min_value=1,
-        max_value=5,
-        widget=forms.HiddenInput(),
-        initial=5
-    )
-
     class Meta:
         model = Review
-        fields = ['rating', 'comment', 'car_rating', 'partner_rating']
+        fields = ['rating', 'car_rating', 'partner_rating', 'comment', 'advantages', 'disadvantages']
         widgets = {
-            'comment': forms.Textarea(attrs={'rows': 4, 'placeholder': 'Оставьте ваш отзыв...'}),
-            'car_rating': forms.HiddenInput(),
-            'partner_rating': forms.HiddenInput(),
+            'rating': forms.RadioSelect(attrs={'class': 'star-rating'}),
+            'car_rating': forms.RadioSelect(attrs={'class': 'star-rating'}),
+            'partner_rating': forms.RadioSelect(attrs={'class': 'star-rating'}),
+            'comment': forms.Textarea(attrs={'class': 'form-control', 'rows': 4, 'placeholder': 'Напишите ваш отзыв...'}),
+            'advantages': forms.Textarea(attrs={'class': 'form-control', 'rows': 2, 'placeholder': 'Что понравилось?'}),
+            'disadvantages': forms.Textarea(attrs={'class': 'form-control', 'rows': 2, 'placeholder': 'Что можно улучшить?'}),
         }
         labels = {
-            'comment': 'Комментарий',
+            'rating': 'Общая оценка',
             'car_rating': 'Оценка автомобиля',
             'partner_rating': 'Оценка партнера',
+            'comment': 'Комментарий',
+            'advantages': 'Достоинства',
+            'disadvantages': 'Недостатки',
+        }
+
+class SupportChatForm(forms.ModelForm):
+    class Meta:
+        model = SupportChat
+        fields = ['subject']
+        widgets = {
+            'subject': forms.TextInput(attrs={
+                'class': 'form-control',
+                'placeholder': 'Кратко опишите ваш вопрос'
+            })
+        }
+
+class SupportMessageForm(forms.ModelForm):
+    class Meta:
+        model = SupportMessage
+        fields = ['message']
+        widgets = {
+            'message': forms.Textarea(attrs={
+                'class': 'form-control',
+                'rows': 3,
+                'placeholder': 'Введите ваше сообщение...'
+            })
         }

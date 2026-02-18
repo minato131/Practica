@@ -1,180 +1,409 @@
 {% extends 'base.html' %}
+{% load static %}
 
 {% block title %}Профиль - Каршеринг{% endblock %}
 
 {% block content %}
 <div class="container py-4">
-    <h1 class="mb-4"><i class="bi bi-person-circle"></i> Мой профиль</h1>
-    
-    <div class="row">
-        <!-- Статистика -->
-        <div class="col-md-4 mb-4">
-            <div class="card shadow-sm">
-                <div class="card-header bg-info text-white">
-                    <h5 class="mb-0">Статистика</h5>
-                </div>
-                <div class="card-body">
-                    <div class="text-center">
-                        <i class="bi bi-calendar-check" style="font-size: 3rem; color: #0dcaf0;"></i>
-                        <h3 class="mt-3">{{ user_stats.total_bookings }}</h3>
-                        <p class="text-muted">Всего бронирований</p>
-                    </div>
-                    
-                    <hr>
-                    
-                    <div class="row text-center">
-                        <div class="col-6">
-                            <h4>{{ user_stats.active_bookings }}</h4>
-                            <small class="text-muted">Активные</small>
-                        </div>
-                        <div class="col-6">
-                            <h4>{{ user_stats.total_spent }} ₽</h4>
-                            <small class="text-muted">Потрачено</small>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            
-            <!-- Роль -->
-            <div class="card shadow-sm mt-4">
-                <div class="card-body text-center">
-                    <i class="bi bi-shield-check" style="font-size: 2rem; color: #198754;"></i>
-                    <h5 class="mt-2">Роль</h5>
-                    <p class="mb-0">
-                        <span class="badge bg-success">{{ user.get_role_display }}</span>
-                    </p>
-                    <small class="text-muted">Статус: {{ user.is_verified|yesno:"Верифицирован,Не верифицирован" }}</small>
-                </div>
+    <!-- Заголовок -->
+    <div class="d-flex align-items-center mb-4">
+        <div class="profile-avatar me-3">
+            <i class="bi bi-person-circle fs-1"></i>
+        </div>
+        <div>
+            <h1 class="mb-1">{{ user.get_full_name|default:user.username }}</h1>
+            <p class="text-muted mb-0">
+                <i class="bi bi-envelope me-1"></i> {{ user.email }}
+                {% if user.phone %}
+                    • <i class="bi bi-telephone me-1"></i> {{ user.phone }}
+                {% endif %}
+            </p>
+        </div>
+    </div>
+
+    <!-- Статистика в карточках -->
+    <div class="row g-4 mb-4">
+        <div class="col-md-3 col-6">
+            <div class="stats-card bg-primary text-white">
+                <i class="bi bi-calendar-check stats-icon"></i>
+                <div class="stats-number">{{ user_stats.total_bookings }}</div>
+                <div class="stats-label">Всего бронирований</div>
             </div>
         </div>
-        
-        <!-- Форма редактирования профиля -->
-        <div class="col-md-8">
+        <div class="col-md-3 col-6">
+            <div class="stats-card bg-success text-white">
+                <i class="bi bi-car-front stats-icon"></i>
+                <div class="stats-number">{{ user_stats.active_bookings }}</div>
+                <div class="stats-label">Активные</div>
+            </div>
+        </div>
+        <div class="col-md-3 col-6">
+            <div class="stats-card bg-info text-white">
+                <i class="bi bi-currency-ruble stats-icon"></i>
+                <div class="stats-number">{{ user_stats.total_spent }} ₽</div>
+                <div class="stats-label">Потрачено</div>
+            </div>
+        </div>
+        <div class="col-md-3 col-6">
+            <div class="stats-card bg-warning text-white">
+                <i class="bi bi-star stats-icon"></i>
+                <div class="stats-number">{{ user.review_set.count }}</div>
+                <div class="stats-label">Отзывов</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Основной контент -->
+    <div class="row">
+        <!-- Левая колонка - информация -->
+        <div class="col-lg-4 mb-4">
+            <!-- Карточка роли -->
+            <div class="card shadow-sm mb-4">
+                <div class="card-body text-center">
+                    <div class="role-badge mb-3">
+                        <i class="bi bi-shield-check fs-1"></i>
+                    </div>
+                    <h5>Роль в системе</h5>
+                    <div class="role-label mb-2">
+                        {% if user.is_superuser %}
+                            <span class="badge bg-danger px-4 py-2">Администратор</span>
+                        {% elif user.is_staff %}
+                            <span class="badge bg-warning px-4 py-2">Менеджер</span>
+                        {% elif user.cars.exists %}
+                            <span class="badge bg-success px-4 py-2">Партнер</span>
+                        {% else %}
+                            <span class="badge bg-primary px-4 py-2">Клиент</span>
+                        {% endif %}
+                    </div>
+                    <p class="text-muted mb-0">
+                        <i class="bi bi-check-circle-{% if user.is_verified %}fill text-success{% else %} text-secondary{% endif %}"></i>
+                        {{ user.is_verified|yesno:"Верифицирован,Не верифицирован" }}
+                    </p>
+                </div>
+            </div>
+
+            <!-- Быстрые ссылки -->
+            <div class="card shadow-sm mb-4">
+                <div class="card-header bg-white">
+                    <h5 class="mb-0"><i class="bi bi-link"></i> Быстрые ссылки</h5>
+                </div>
+                <div class="list-group list-group-flush">
+                    <a href="{% url 'my_bookings' %}" class="list-group-item list-group-item-action d-flex align-items-center">
+                        <i class="bi bi-calendar-check text-primary me-3 fs-5"></i>
+                        <span>Мои бронирования</span>
+                        <span class="badge bg-primary rounded-pill ms-auto">{{ user_stats.total_bookings }}</span>
+                    </a>
+                    <a href="{% url 'support_chat_list' %}" class="list-group-item list-group-item-action d-flex align-items-center">
+                        <i class="bi bi-chat-dots text-info me-3 fs-5"></i>
+                        <span>Чаты поддержки</span>
+                        {% with chats_count=user.support_chats.all|length %}
+                            {% if chats_count > 0 %}
+                                <span class="badge bg-info rounded-pill ms-auto">{{ chats_count }}</span>
+                            {% endif %}
+                        {% endwith %}
+                    </a>
+                    <a href="{% url 'car_list' %}" class="list-group-item list-group-item-action d-flex align-items-center">
+                        <i class="bi bi-car-front text-success me-3 fs-5"></i>
+                        <span>Каталог автомобилей</span>
+                        <i class="bi bi-arrow-right ms-auto"></i>
+                    </a>
+                </div>
+            </div>
+
+            <!-- Информация о пользователе -->
             <div class="card shadow-sm">
-                <div class="card-header bg-primary text-white">
-                    <h5 class="mb-0">Редактировать профиль</h5>
+                <div class="card-header bg-white">
+                    <h5 class="mb-0"><i class="bi bi-person-badge"></i> Личные данные</h5>
                 </div>
                 <div class="card-body">
-                    <form method="post">
+                    <form method="post" id="profileForm">
                         {% csrf_token %}
-                        
-                        <div class="row g-3">
-                            <!-- Логин и Email -->
-                            <div class="col-md-6">
-                                <label class="form-label">Логин</label>
-                                <input type="text" class="form-control" value="{{ user.username }}" readonly>
-                                <small class="text-muted">Логин нельзя изменить</small>
+
+                        <div class="mb-3">
+                            <label class="form-label text-muted small">Логин</label>
+                            <input type="text" class="form-control" value="{{ user.username }}" readonly>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label text-muted small">Email</label>
+                            <input type="email" class="form-control" value="{{ user.email }}" readonly>
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label for="first_name" class="form-label text-muted small">Имя</label>
+                                <input type="text" class="form-control" id="first_name" name="first_name"
+                                       value="{{ user.first_name }}" placeholder="Ваше имя">
                             </div>
-                            
-                            <div class="col-md-6">
-                                <label class="form-label">Email</label>
-                                <input type="email" class="form-control" value="{{ user.email }}" readonly>
-                                <small class="text-muted">Email нельзя изменить</small>
+                            <div class="col-md-6 mb-3">
+                                <label for="last_name" class="form-label text-muted small">Фамилия</label>
+                                <input type="text" class="form-control" id="last_name" name="last_name"
+                                       value="{{ user.last_name }}" placeholder="Ваша фамилия">
                             </div>
-                            
-                            <!-- Имя и Фамилия -->
-                            <div class="col-md-6">
-                                <label for="first_name" class="form-label">Имя</label>
-                                <input type="text" class="form-control" id="first_name" name="first_name" 
-                                       value="{{ user.first_name }}">
-                            </div>
-                            
-                            <div class="col-md-6">
-                                <label for="last_name" class="form-label">Фамилия</label>
-                                <input type="text" class="form-control" id="last_name" name="last_name" 
-                                       value="{{ user.last_name }}">
-                            </div>
-                            
-                            <!-- Телефон и Водительское удостоверение -->
-                            <div class="col-md-6">
-                                <label for="phone" class="form-label">Телефон</label>
-                                <input type="tel" class="form-control" id="phone" name="phone" 
-                                       value="{{ user.phone }}">
-                                <small class="text-muted">Например: +7 (999) 123-45-67</small>
-                            </div>
-                            
-                            <div class="col-md-6">
-                                <label for="driver_license" class="form-label">Водительское удостоверение</label>
-                                <input type="text" class="form-control" id="driver_license" name="driver_license" 
-                                       value="{{ user.driver_license }}">
-                                <small class="text-muted">Серия и номер</small>
-                            </div>
-                            
-                            <!-- Дата регистрации -->
-                            <div class="col-12">
-                                <hr>
-                                <div class="row">
-                                    <div class="col-md-6">
-                                        <p class="mb-1"><small>Дата регистрации</small></p>
-                                        <p>{{ user.date_joined|date:"d.m.Y H:i" }}</p>
-                                    </div>
-                                    <div class="col-md-6">
-                                        <p class="mb-1"><small>Последний вход</small></p>
-                                        <p>{{ user.last_login|date:"d.m.Y H:i"|default:"Еще не входил" }}</p>
-                                    </div>
-                                </div>
-                            </div>
-                            
-                            <!-- Кнопки -->
-                            <div class="col-12">
-                                <div class="d-grid gap-2 d-md-flex justify-content-md-end">
-                                    <button type="submit" class="btn btn-primary">
-                                        <i class="bi bi-check-circle"></i> Сохранить изменения
-                                    </button>
-                                    <a href="{% url 'password_change' %}" class="btn btn-outline-secondary ms-2">
-                                        <i class="bi bi-key"></i> Сменить пароль
-                                    </a>
-                                </div>
-                            </div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="phone" class="form-label text-muted small">Телефон</label>
+                            <input type="tel" class="form-control" id="phone" name="phone"
+                                   value="{{ user.phone }}" placeholder="+7 (999) 123-45-67">
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="driver_license" class="form-label text-muted small">Водительское удостоверение</label>
+                            <input type="text" class="form-control" id="driver_license" name="driver_license"
+                                   value="{{ user.driver_license }}" placeholder="Серия и номер">
+                        </div>
+
+                        <div class="d-grid gap-2">
+                            <button type="submit" class="btn btn-primary">
+                                <i class="bi bi-check-circle"></i> Сохранить изменения
+                            </button>
+                            <a href="{% url 'password_change' %}" class="btn btn-outline-secondary">
+                                <i class="bi bi-key"></i> Сменить пароль
+                            </a>
                         </div>
                     </form>
                 </div>
             </div>
-            
-            <!-- Мои автомобили (если пользователь партнер) -->
-            {% if user.cars.all %}
-                <div class="card shadow-sm mt-4">
-                    <div class="card-header">
-                        <h5 class="mb-0">Мои автомобили</h5>
-                    </div>
-                    <div class="card-body">
-                        <div class="table-responsive">
-                            <table class="table table-hover">
-                                <thead>
-                                    <tr>
-                                        <th>Автомобиль</th>
-                                        <th>Статус</th>
-                                        <th>Цена/час</th>
-                                        <th>Действия</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {% for car in user.cars.all %}
-                                        <tr>
-                                            <td>{{ car.brand }} {{ car.model }}</td>
-                                            <td>
-                                                <span class="badge 
-                                                    {% if car.status.name == 'доступен' %}bg-success
-                                                    {% elif car.status.name == 'забронирован' %}bg-primary
-                                                    {% else %}bg-warning{% endif %}">
-                                                    {{ car.status.name }}
-                                                </span>
-                                            </td>
-                                            <td>{{ car.price_per_hour }} ₽</td>
-                                            <td>
-                                                <a href="{% url 'car_detail' car.id %}" class="btn btn-sm btn-outline-primary">
-                                                    <i class="bi bi-eye"></i>
-                                                </a>
-                                            </td>
-                                        </tr>
-                                    {% endfor %}
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
+        </div>
+
+        <!-- Правая колонка - активность -->
+        <div class="col-lg-8">
+            <!-- Активные бронирования -->
+            <div class="card shadow-sm mb-4">
+                <div class="card-header bg-white d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0"><i class="bi bi-calendar-check text-primary"></i> Активные бронирования</h5>
+                    <a href="{% url 'my_bookings' %}" class="btn btn-sm btn-outline-primary">Все бронирования <i class="bi bi-arrow-right"></i></a>
                 </div>
-            {% endif %}
+                <div class="card-body">
+                    {% with active_bookings=user.booking_set.all %}
+                        {% if active_bookings %}
+                            <div class="row g-3">
+                                {% for booking in active_bookings|slice:":3" %}
+                                    <div class="col-md-6">
+                                        <div class="booking-card">
+                                            <div class="d-flex justify-content-between align-items-start mb-2">
+                                                <h6 class="mb-0">{{ booking.car.brand }} {{ booking.car.model }}</h6>
+                                                <span class="badge bg-{% if booking.status.name == 'активно' %}success{% else %}primary{% endif %}">
+                                                    {{ booking.status.name }}
+                                                </span>
+                                            </div>
+                                            <div class="small text-muted mb-2">
+                                                <i class="bi bi-calendar"></i> {{ booking.start_date|date:"d.m.Y H:i" }}<br>
+                                                <i class="bi bi-calendar"></i> {{ booking.end_date|date:"d.m.Y H:i" }}
+                                            </div>
+                                            <div class="d-flex justify-content-between align-items-center">
+                                                <span class="fw-bold text-primary">{{ booking.calculated_price }} ₽</span>
+                                                <a href="{% url 'booking_detail' booking.id %}" class="btn btn-sm btn-outline-primary">
+                                                    Подробнее
+                                                </a>
+                                            </div>
+                                        </div>
+                                    </div>
+                                {% endfor %}
+                            </div>
+                        {% else %}
+                            <div class="text-center py-4">
+                                <i class="bi bi-calendar-x fs-1 text-secondary"></i>
+                                <p class="mt-2 mb-0">Нет активных бронирований</p>
+                                <a href="{% url 'car_list' %}" class="btn btn-primary btn-sm mt-2">
+                                    <i class="bi bi-plus-circle"></i> Забронировать авто
+                                </a>
+                            </div>
+                        {% endif %}
+                    {% endwith %}
+                </div>
+            </div>
+
+            <!-- Мои отзывы - КРАСИВО -->
+            <div class="card shadow-sm mb-4">
+                <div class="card-header bg-white d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0"><i class="bi bi-star-fill text-warning"></i> Мои отзывы</h5>
+                </div>
+                <div class="card-body">
+                    {% with user_reviews=user.review_set.all %}
+                        {% if user_reviews %}
+                            <div class="reviews-grid">
+                                {% for review in user_reviews %}
+                                    <div class="review-item">
+                                        <div class="d-flex justify-content-between align-items-start mb-2">
+                                            <div>
+                                                <h6 class="mb-0">{{ review.booking.car.brand }} {{ review.booking.car.model }}</h6>
+                                                <small class="text-muted">{{ review.created_at|date:"d.m.Y" }}</small>
+                                            </div>
+                                            <div class="rating-badge">
+                                                {% for i in "12345"|make_list %}
+                                                    <i class="bi bi-star{% if forloop.counter <= review.rating %}-fill text-warning{% endif %}"></i>
+                                                {% endfor %}
+                                            </div>
+                                        </div>
+                                        <p class="review-comment">{{ review.comment|truncatechars:150 }}</p>
+                                        <div class="d-flex justify-content-between align-items-center mt-2">
+                                            <small class="text-muted">
+                                                <i class="bi bi-car-front"></i> Оценка авто:
+                                                {% for i in "12345"|make_list %}
+                                                    <i class="bi bi-star{% if forloop.counter <= review.car_rating %}-fill text-warning{% endif %} small"></i>
+                                                {% endfor %}
+                                            </small>
+                                            <a href="{% url 'car_detail' review.booking.car.id %}" class="btn btn-sm btn-link">
+                                                К автомобилю <i class="bi bi-arrow-right"></i>
+                                            </a>
+                                        </div>
+                                    </div>
+                                {% endfor %}
+                            </div>
+                        {% else %}
+                            <div class="text-center py-4">
+                                <i class="bi bi-star fs-1 text-secondary"></i>
+                                <p class="mt-2 mb-0">У вас пока нет отзывов</p>
+                                <p class="text-muted small">Оставьте отзыв после завершения бронирования</p>
+                            </div>
+                        {% endif %}
+                    {% endwith %}
+                </div>
+            </div>
+
+            <!-- Чаты поддержки -->
+            <div class="card shadow-sm">
+                <div class="card-header bg-white d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0"><i class="bi bi-chat-dots text-info"></i> Чаты поддержки</h5>
+                    <a href="{% url 'support_create_chat' %}" class="btn btn-sm btn-success">
+                        <i class="bi bi-plus-circle"></i> Новый чат
+                    </a>
+                </div>
+                <div class="card-body">
+                    {% if user.support_chats.all %}
+                        <div class="list-group">
+                            {% for chat in user.support_chats.all|slice:":3" %}
+                                <a href="{% url 'support_chat_detail' chat.id %}" class="list-group-item list-group-item-action">
+                                    <div class="d-flex justify-content-between align-items-center">
+                                        <div>
+                                            <strong>{{ chat.subject }}</strong>
+                                            <br>
+                                            <small class="text-muted">Обновлен {{ chat.updated_at|timesince }} назад</small>
+                                        </div>
+                                        <div class="d-flex align-items-center">
+                                            {% with unread=chat.get_unread_count %}
+                                                {% if unread > 0 %}
+                                                    <span class="badge bg-danger rounded-pill me-2">{{ unread }}</span>
+                                                {% endif %}
+                                            {% endwith %}
+                                            <span class="badge bg-{% if chat.is_closed %}secondary{% else %}success{% endif %}">
+                                                {{ chat.is_closed|yesno:"Закрыт,Активен" }}
+                                            </span>
+                                        </div>
+                                    </div>
+                                </a>
+                            {% endfor %}
+                        </div>
+                        {% if user.support_chats.all.count > 3 %}
+                            <div class="text-center mt-3">
+                                <a href="{% url 'support_chat_list' %}" class="btn btn-outline-info btn-sm">
+                                    Все чаты ({{ user.support_chats.all.count }})
+                                </a>
+                            </div>
+                        {% endif %}
+                    {% else %}
+                        <div class="text-center py-4">
+                            <i class="bi bi-chat fs-1 text-secondary"></i>
+                            <p class="mt-2 mb-0">Нет активных чатов</p>
+                            <a href="{% url 'support_create_chat' %}" class="btn btn-success btn-sm mt-2">
+                                <i class="bi bi-plus-circle"></i> Создать чат
+                            </a>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
         </div>
     </div>
 </div>
+
+<!-- Стили -->
+<style>
+    .stats-card {
+        border-radius: 15px;
+        padding: 20px;
+        position: relative;
+        overflow: hidden;
+        box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+        transition: transform 0.3s;
+    }
+    .stats-card:hover {
+        transform: translateY(-5px);
+    }
+    .stats-icon {
+        position: absolute;
+        right: 20px;
+        top: 20px;
+        font-size: 2.5rem;
+        opacity: 0.3;
+    }
+    .stats-number {
+        font-size: 2rem;
+        font-weight: bold;
+        margin-bottom: 5px;
+    }
+    .stats-label {
+        font-size: 0.9rem;
+        opacity: 0.9;
+    }
+    .role-badge {
+        width: 70px;
+        height: 70px;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin: 0 auto;
+        color: white;
+    }
+    .booking-card {
+        background: #f8f9fa;
+        border-radius: 12px;
+        padding: 15px;
+        transition: all 0.3s;
+    }
+    .booking-card:hover {
+        background: #fff;
+        box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+    }
+    .review-item {
+        background: #f8f9fa;
+        border-radius: 12px;
+        padding: 15px;
+        margin-bottom: 15px;
+        transition: all 0.3s;
+    }
+    .review-item:hover {
+        background: #fff;
+        box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+        transform: translateX(5px);
+    }
+    .review-comment {
+        color: #495057;
+        font-size: 0.95rem;
+        line-height: 1.5;
+        margin: 10px 0;
+    }
+    .rating-badge i {
+        font-size: 0.9rem;
+        margin-right: 2px;
+    }
+    .badge {
+        font-weight: 500;
+        padding: 6px 12px;
+    }
+    .list-group-item {
+        border-left: none;
+        border-right: none;
+        padding: 15px 20px;
+    }
+    .list-group-item:first-child {
+        border-top: none;
+    }
+    .list-group-item:last-child {
+        border-bottom: none;
+    }
+</style>
 {% endblock %}

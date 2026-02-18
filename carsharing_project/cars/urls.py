@@ -47,4 +47,11 @@ urlpatterns = [
     path('manager/bookings/', views.manager_bookings, name='manager_bookings'),
     path('manager/bookings/<int:booking_id>/confirm/', views.confirm_booking, name='confirm_booking'),
     path('manager/cars/', views.manager_cars, name='manager_cars'),
+    path('review/add/<int:booking_id>/', views.add_review, name='add_review'),
+
+    # Чат поддержки
+    path('support/', views.support_chat_list, name='support_chat_list'),
+    path('support/create/', views.support_create_chat, name='support_create_chat'),
+    path('support/<int:chat_id>/', views.support_chat_detail, name='support_chat_detail'),
+    path('support/<int:chat_id>/close/', views.support_close_chat, name='support_close_chat'),
 ]

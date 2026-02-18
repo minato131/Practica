@@ -34,31 +34,47 @@
                 <div class="card-body">
                     <h1 class="card-title">{{ car.brand }} {{ car.model }}</h1>
 
-                    <!-- Статус -->
-                    <div class="mb-3">
-                        <span class="badge {% if car.status.name == 'доступен' %}bg-success{% else %}bg-danger{% endif %} fs-6">
-                            {{ car.status.name|upper }}
-                        </span>
-                        {% if car.category %}
-                            <span class="badge bg-info fs-6">{{ car.category.name }}</span>
-                        {% endif %}
+                    <!-- Статус и рейтинг -->
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <div>
+                            <span class="badge {% if car.status.name == 'доступен' %}bg-success{% else %}bg-danger{% endif %} fs-6">
+                                {{ car.status.name|upper }}
+                            </span>
+                            {% if car.category %}
+                                <span class="badge bg-info fs-6">{{ car.category.name }}</span>
+                            {% endif %}
+                        </div>
+                        <div class="rating-display">
+                            <span class="text-warning fs-5">
+                                {% for i in "12345"|make_list %}
+                                    {% if forloop.counter <= car.get_average_rating %}
+                                        <i class="bi bi-star-fill"></i>
+                                    {% elif forloop.counter <= car.get_average_rating|add:"0.5" %}
+                                        <i class="bi bi-star-half"></i>
+                                    {% else %}
+                                        <i class="bi bi-star"></i>
+                                    {% endif %}
+                                {% endfor %}
+                            </span>
+                            <span class="ms-2">{{ car.get_average_rating|floatformat:1 }} ({{ car.get_reviews_count }} отзывов)</span>
+                        </div>
                     </div>
 
                     <!-- Характеристики -->
                     <div class="row mb-4">
                         <div class="col-6">
-                            <p><i class="bi bi-calendar"></i> <strong>Год:</strong> {{ car.year }}</p>
-                            <p><i class="bi bi-gear"></i> <strong>КПП:</strong> {{ car.transmission.name }}</p>
+                            <p><i class="bi bi-calendar text-primary"></i> <strong>Год:</strong> {{ car.year }}</p>
+                            <p><i class="bi bi-gear text-primary"></i> <strong>КПП:</strong> {{ car.transmission.name }}</p>
                         </div>
                         <div class="col-6">
-                            <p><i class="bi bi-fuel-pump"></i> <strong>Двигатель:</strong> {{ car.engine_type|default:"Не указан" }}</p>
-                            <p><i class="bi bi-speedometer2"></i> <strong>Лимит пробега:</strong> {{ car.mileage_limit|default:"Не ограничен" }} км</p>
+                            <p><i class="bi bi-fuel-pump text-primary"></i> <strong>Двигатель:</strong> {{ car.engine_type|default:"Не указан" }}</p>
+                            <p><i class="bi bi-speedometer2 text-primary"></i> <strong>Лимит пробега:</strong> {{ car.mileage_limit|default:"Не ограничен" }} км/день</p>
                         </div>
                     </div>
 
                     <!-- Описание -->
                     <div class="mb-4">
-                        <h5>Описание</h5>
+                        <h5><i class="bi bi-file-text"></i> Описание</h5>
                         <p>{{ car.description|default:"Описание отсутствует." }}</p>
                     </div>
 
@@ -66,13 +82,13 @@
                     <div class="card bg-light mb-4">
                         <div class="card-body">
                             <div class="row text-center">
-                                <div class="col-6">
-                                    <h3 class="text-primary">{{ car.price_per_hour }} ₽</h3>
-                                    <p class="text-muted">в час</p>
+                                <div class="col-6 border-end">
+                                    <h3 class="text-primary mb-0">{{ car.price_per_hour }} ₽</h3>
+                                    <p class="text-muted mb-0">в час</p>
                                 </div>
                                 <div class="col-6">
-                                    <h3 class="text-primary">{{ car.price_per_day }} ₽</h3>
-                                    <p class="text-muted">в сутки</p>
+                                    <h3 class="text-primary mb-0">{{ car.price_per_day }} ₽</h3>
+                                    <p class="text-muted mb-0">в сутки</p>
                                 </div>
                             </div>
                         </div>
@@ -81,16 +97,16 @@
                     <!-- Локация -->
                     {% if car.address %}
                         <div class="mb-4">
-                            <h5><i class="bi bi-geo-alt"></i> Локация</h5>
+                            <h5><i class="bi bi-geo-alt text-danger"></i> Локация</h5>
                             <p>{{ car.address }}</p>
                         </div>
                     {% endif %}
 
                     <!-- Владелец -->
                     <div class="mb-4">
-                        <h5>Владелец</h5>
+                        <h5><i class="bi bi-person-badge text-info"></i> Владелец</h5>
                         <div class="d-flex align-items-center">
-                            <i class="bi bi-person-circle fs-3 me-3"></i>
+                            <i class="bi bi-person-circle fs-3 me-3 text-secondary"></i>
                             <div>
                                 <p class="mb-0"><strong>{{ car.partner.get_full_name|default:car.partner.email }}</strong></p>
                                 <p class="text-muted mb-0">Партнер каршеринга</p>
@@ -104,158 +120,260 @@
 
     <!-- Бронирование -->
     <div class="row mt-4">
-    <div class="col-12">
-        <div class="card shadow-sm">
-            <div class="card-header bg-primary text-white">
-                <h4 class="mb-0"><i class="bi bi-calendar-check"></i> Бронирование</h4>
-            </div>
-            <div class="card-body">
-                {% if user.is_authenticated %}
-                    {% if car.status.name == 'доступен' %}
-                        <form method="post" action="{% url 'book_car' car.id %}">
-                            {% csrf_token %}
-                            <div class="row g-3">
-                                <div class="col-md-6">
-                                    <label for="start_date" class="form-label">Дата и время начала</label>
-                                    <input type="datetime-local" class="form-control"
-                                           id="start_date" name="start_date" required
-                                           min="{{ today|date:'Y-m-d' }}T{{ today|time:'H:i' }}">
+        <div class="col-12">
+            <div class="card shadow-sm">
+                <div class="card-header bg-primary text-white">
+                    <h4 class="mb-0"><i class="bi bi-calendar-check"></i> Забронировать автомобиль</h4>
+                </div>
+                <div class="card-body">
+                    {% if user.is_authenticated %}
+                        {% if car.status.name == 'доступен' %}
+                            <form method="post" action="{% url 'book_car' car.id %}" id="bookingForm">
+                                {% csrf_token %}
+                                <div class="row g-3">
+                                    <div class="col-md-5">
+                                        <label for="start_date" class="form-label fw-bold">Дата и время начала</label>
+                                        <input type="datetime-local" class="form-control form-control-lg"
+                                               id="start_date" name="start_date" required
+                                               min="{{ today|date:'Y-m-d' }}T{{ today|time:'H:i' }}">
+                                    </div>
+                                    <div class="col-md-5">
+                                        <label for="end_date" class="form-label fw-bold">Дата и время окончания</label>
+                                        <input type="datetime-local" class="form-control form-control-lg"
+                                               id="end_date" name="end_date" required
+                                               min="{{ today|date:'Y-m-d' }}T{{ today|time:'H:i' }}">
+                                    </div>
+                                    <div class="col-md-2 d-flex align-items-end">
+                                        <button type="submit" class="btn btn-primary btn-lg w-100">
+                                            <i class="bi bi-check-circle"></i> Забронировать
+                                        </button>
+                                    </div>
                                 </div>
-                                <div class="col-md-6">
-                                    <label for="end_date" class="form-label">Дата и время окончания</label>
-                                    <input type="datetime-local" class="form-control"
-                                           id="end_date" name="end_date" required
-                                           min="{{ today|date:'Y-m-d' }}T{{ today|time:'H:i' }}">
-                                </div>
-                            </div>
 
-                            <div class="mt-3">
-                                <div class="alert alert-info">
-                                    <i class="bi bi-info-circle"></i>
-                                    После бронирования с вами свяжется менеджер для подтверждения.
+                                <div id="pricePreview" class="mt-3 p-3 bg-light rounded d-none">
+                                    <div class="d-flex justify-content-between align-items-center">
+                                        <span class="fw-bold">Предварительная стоимость:</span>
+                                        <span class="h4 text-success mb-0" id="previewAmount">0 ₽</span>
+                                    </div>
+                                    <small class="text-muted">* Точная стоимость будет рассчитана после подтверждения менеджером</small>
                                 </div>
-                            </div>
 
-                            <div class="mt-3">
-                                <button type="submit" class="btn btn-primary btn-lg">
-                                    <i class="bi bi-check-circle"></i> Забронировать
-                                </button>
-                                <a href="{% url 'car_list' %}" class="btn btn-outline-secondary">
-                                    <i class="bi bi-arrow-left"></i> Назад к каталогу
+                                <div class="mt-3">
+                                    <div class="alert alert-info">
+                                        <i class="bi bi-info-circle"></i>
+                                        После бронирования с вами свяжется менеджер для подтверждения.
+                                    </div>
+                                </div>
+                            </form>
+                        {% else %}
+                            <div class="alert alert-warning py-4 text-center">
+                                <i class="bi bi-exclamation-triangle fs-1 d-block mb-3"></i>
+                                <h4>Автомобиль временно недоступен</h4>
+                                <p class="mb-0">Попробуйте выбрать другой автомобиль в нашем каталоге</p>
+                                <a href="{% url 'car_list' %}" class="btn btn-primary mt-3">
+                                    <i class="bi bi-arrow-left"></i> Вернуться к каталогу
                                 </a>
                             </div>
-                        </form>
+                        {% endif %}
                     {% else %}
-                        <div class="alert alert-warning">
-                            <i class="bi bi-exclamation-triangle"></i>
-                            Автомобиль временно недоступен для бронирования.
+                        <div class="text-center py-5">
+                            <i class="bi bi-lock fs-1 text-secondary"></i>
+                            <h4 class="mt-3">Требуется авторизация</h4>
+                            <p class="text-muted">Для бронирования автомобиля необходимо войти в систему</p>
+                            <div class="mt-4">
+                                <a href="{% url 'login' %}?next={% url 'car_detail' car.id %}"
+                                   class="btn btn-primary btn-lg px-5">Войти</a>
+                                <a href="{% url 'register' %}" class="btn btn-outline-primary btn-lg px-5 ms-2">
+                                    Зарегистрироваться
+                                </a>
+                            </div>
                         </div>
                     {% endif %}
-                {% else %}
-                    <div class="text-center py-4">
-                        <i class="bi bi-lock" style="font-size: 3rem;"></i>
-                        <h4 class="mt-3">Требуется авторизация</h4>
-                        <p>Для бронирования автомобиля необходимо войти в систему</p>
-                        <a href="{% url 'login' %}?next={% url 'car_detail' car.id %}"
-                           class="btn btn-primary">Войти</a>
-                        <a href="{% url 'register' %}" class="btn btn-outline-primary ms-2">
-                            Зарегистрироваться
-                        </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Секция отзывов - КРАСИВО -->
+    <div class="row mt-5">
+        <div class="col-12">
+            <div class="card shadow-sm">
+                <div class="card-header bg-white py-3">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <h4 class="mb-0"><i class="bi bi-star-fill text-warning"></i> Отзывы об автомобиле</h4>
+                        <div class="rating-summary">
+                            <span class="h5 mb-0 me-2">{{ car.get_average_rating|floatformat:1 }}</span>
+                            <span class="text-warning">
+                                {% for i in "12345"|make_list %}
+                                    {% if forloop.counter <= car.get_average_rating %}
+                                        <i class="bi bi-star-fill"></i>
+                                    {% elif forloop.counter <= car.get_average_rating|add:"0.5" %}
+                                        <i class="bi bi-star-half"></i>
+                                    {% else %}
+                                        <i class="bi bi-star"></i>
+                                    {% endif %}
+                                {% endfor %}
+                            </span>
+                            <span class="text-muted ms-2">({{ car.get_reviews_count }} отзывов)</span>
+                        </div>
                     </div>
-                {% endif %}
+                </div>
+                <div class="card-body">
+                    {% with reviews=car.get_reviews %}
+                        {% if reviews %}
+                            <div class="row">
+                                {% for review in reviews %}
+                                    <div class="col-md-6 mb-4">
+                                        <div class="review-card h-100">
+                                            <div class="d-flex justify-content-between align-items-start mb-2">
+                                                <div class="d-flex align-items-center">
+                                                    <div class="avatar-circle bg-primary text-white me-3">
+                                                        {{ review.user.username|first|upper }}
+                                                    </div>
+                                                    <div>
+                                                        <h6 class="mb-0">{{ review.user.get_full_name|default:review.user.username }}</h6>
+                                                        <small class="text-muted">{{ review.created_at|date:"d.m.Y" }}</small>
+                                                    </div>
+                                                </div>
+                                                <div class="rating-stars">
+                                                    {% for i in "12345"|make_list %}
+                                                        <i class="bi bi-star{% if forloop.counter <= review.rating %}-fill text-warning{% else %} text-secondary{% endif %}"></i>
+                                                    {% endfor %}
+                                                </div>
+                                            </div>
+
+                                            <p class="review-text mb-3">{{ review.comment }}</p>
+
+                                            {% if review.advantages or review.disadvantages %}
+                                                <div class="row mt-2 g-2">
+                                                    {% if review.advantages %}
+                                                        <div class="col-6">
+                                                            <div class="p-2 bg-light rounded">
+                                                                <small class="text-success fw-bold d-block mb-1">
+                                                                    <i class="bi bi-plus-circle"></i> Достоинства
+                                                                </small>
+                                                                <small>{{ review.advantages }}</small>
+                                                            </div>
+                                                        </div>
+                                                    {% endif %}
+                                                    {% if review.disadvantages %}
+                                                        <div class="col-6">
+                                                            <div class="p-2 bg-light rounded">
+                                                                <small class="text-danger fw-bold d-block mb-1">
+                                                                    <i class="bi bi-dash-circle"></i> Недостатки
+                                                                </small>
+                                                                <small>{{ review.disadvantages }}</small>
+                                                            </div>
+                                                        </div>
+                                                    {% endif %}
+                                                </div>
+                                            {% endif %}
+
+                                            <div class="mt-2 text-end">
+                                                <small class="text-muted">
+                                                    Оценка авто:
+                                                    {% for i in "12345"|make_list %}
+                                                        <i class="bi bi-star{% if forloop.counter <= review.car_rating %}-fill text-warning{% else %} text-secondary{% endif %} small"></i>
+                                                    {% endfor %}
+                                                </small>
+                                            </div>
+                                        </div>
+                                    </div>
+                                {% endfor %}
+                            </div>
+                        {% else %}
+                            <div class="text-center py-5">
+                                <i class="bi bi-chat-square-text fs-1 text-secondary"></i>
+                                <h5 class="mt-3">Пока нет отзывов</h5>
+                                <p class="text-muted">Будьте первым, кто оставит отзыв об этом автомобиле!</p>
+                            </div>
+                        {% endif %}
+                    {% endwith %}
+                </div>
             </div>
         </div>
     </div>
 </div>
 
-    <!-- Отзывы -->
-    {% if reviews %}
-        <div class="row mt-4">
-            <div class="col-12">
-                <div class="card shadow-sm">
-                    <div class="card-header">
-                        <h4 class="mb-0"><i class="bi bi-chat-left-text"></i> Отзывы</h4>
-                    </div>
-                    <div class="card-body">
-                        {% for review in reviews %}
-                            <div class="mb-3 pb-3 border-bottom">
-                                <div class="d-flex justify-content-between mb-2">
-                                    <div>
-                                        <strong>{{ review.booking.client.get_full_name|default:review.booking.client.email }}</strong>
-                                        <div class="text-warning">
-                                            {% for i in "12345" %}
-                                                {% if forloop.counter <= review.rating %}
-                                                    <i class="bi bi-star-fill"></i>
-                                                {% else %}
-                                                    <i class="bi bi-star"></i>
-                                                {% endif %}
-                                            {% endfor %}
-                                        </div>
-                                    </div>
-                                    <small class="text-muted">{{ review.created_at|date:"d.m.Y H:i" }}</small>
-                                </div>
-                                <p>{{ review.comment }}</p>
+<!-- Стили для отзывов и предпросмотра цены -->
+<style>
+    .review-card {
+        background: #fff;
+        border: 1px solid #e9ecef;
+        border-radius: 12px;
+        padding: 20px;
+        transition: all 0.3s ease;
+    }
+    .review-card:hover {
+        box-shadow: 0 5px 20px rgba(0,0,0,0.1);
+        transform: translateY(-2px);
+    }
+    .avatar-circle {
+        width: 45px;
+        height: 45px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: bold;
+        font-size: 1.2rem;
+    }
+    .review-text {
+        color: #495057;
+        line-height: 1.6;
+    }
+    .rating-stars i {
+        font-size: 1.1rem;
+        margin-right: 2px;
+    }
+</style>
 
-                                {% if review.car_rating or review.partner_rating %}
-                                    <div class="row mt-2">
-                                        {% if review.car_rating %}
-                                            <div class="col-6">
-                                                <small>Оценка автомобиля: </small>
-                                                <span class="text-warning">
-                                                    {% for i in "12345" %}
-                                                        {% if forloop.counter <= review.car_rating %}
-                                                            <i class="bi bi-star-fill"></i>
-                                                        {% else %}
-                                                            <i class="bi bi-star"></i>
-                                                        {% endif %}
-                                                    {% endfor %}
-                                                </span>
-                                            </div>
-                                        {% endif %}
-                                        {% if review.partner_rating %}
-                                            <div class="col-6">
-                                                <small>Оценка партнера: </small>
-                                                <span class="text-warning">
-                                                    {% for i in "12345" %}
-                                                        {% if forloop.counter <= review.partner_rating %}
-                                                            <i class="bi bi-star-fill"></i>
-                                                        {% else %}
-                                                            <i class="bi bi-star"></i>
-                                                        {% endif %}
-                                                    {% endfor %}
-                                                </span>
-                                            </div>
-                                        {% endif %}
-                                    </div>
-                                {% endif %}
-                            </div>
-                        {% endfor %}
-                    </div>
-                </div>
-            </div>
-        </div>
-    {% endif %}
-</div>
-
-{% block extra_js %}
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    const startDateInput = document.getElementById('id_start_date');
-    const endDateInput = document.getElementById('id_end_date');
+    const startDateInput = document.getElementById('start_date');
+    const endDateInput = document.getElementById('end_date');
+    const pricePreview = document.getElementById('pricePreview');
+    const previewAmount = document.getElementById('previewAmount');
 
     // Устанавливаем минимальную дату - сегодня
     const today = new Date().toISOString().slice(0, 16);
     startDateInput.min = today;
     endDateInput.min = today;
 
-    // При изменении даты начала устанавливаем минимальную дату окончания
+    // При изменении дат рассчитываем стоимость
+    function calculatePrice() {
+        if (startDateInput.value && endDateInput.value) {
+            const start = new Date(startDateInput.value);
+            const end = new Date(endDateInput.value);
+
+            if (end > start) {
+                const hours = (end - start) / (1000 * 60 * 60);
+                const pricePerHour = {{ car.price_per_hour }};
+                const pricePerDay = {{ car.price_per_day }};
+
+                let total;
+                if (hours <= 24) {
+                    total = pricePerHour * hours;
+                } else {
+                    const days = hours / 24;
+                    total = pricePerDay * days;
+                }
+
+                previewAmount.textContent = Math.round(total) + ' ₽';
+                pricePreview.classList.remove('d-none');
+            }
+        }
+    }
+
     startDateInput.addEventListener('change', function() {
         endDateInput.min = this.value;
         if (endDateInput.value && endDateInput.value < this.value) {
             endDateInput.value = this.value;
         }
+        calculatePrice();
     });
+
+    endDateInput.addEventListener('change', calculatePrice);
 });
 </script>
-{% endblock %}
 {% endblock %}

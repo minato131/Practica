@@ -1,10 +1,26 @@
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
 from django.utils.translation import gettext_lazy as _
-from .models import (
-    User, TransmissionType, CarStatus, BookingStatus, PaymentType,
-    PaymentStatus, CarCategory, Car, Booking, Payment, Review
-)
+from django.utils.html import format_html
+from .models import User, Car, CarImage, Booking, CarStatus, BookingStatus, Payment, PaymentType, PaymentStatus, \
+    TransmissionType, CarCategory, Review
+
+
+class CarImageInline(admin.TabularInline):
+    """Инлайн для загрузки нескольких изображений автомобиля"""
+    model = CarImage
+    extra = 3
+    fields = ['image', 'is_main', 'caption', 'order', 'image_preview']
+    readonly_fields = ['image_preview']
+
+    def image_preview(self, obj):
+        if obj and obj.image:
+            return format_html('<img src="{}" style="max-height: 100px; max-width: 100px; border-radius: 5px;" />',
+                               obj.image.url)
+        return "Нет изображения"
+
+    image_preview.short_description = "Превью"
+
 
 # Настройка кастомного пользователя в админке
 class UserAdmin(BaseUserAdmin):
@@ -28,12 +44,15 @@ class UserAdmin(BaseUserAdmin):
     search_fields = ('username', 'first_name', 'last_name', 'email')
     ordering = ('username',)
 
+
 # Модель автомобиля
 class CarAdmin(admin.ModelAdmin):
-    list_display = ('brand', 'model', 'year', 'status', 'price_per_hour', 'partner', 'created_at')
+    list_display = ('brand', 'model', 'year', 'status', 'price_per_hour', 'partner', 'main_image_preview', 'created_at')
     list_filter = ('status', 'category', 'transmission', 'year')
     search_fields = ('brand', 'model', 'description', 'address')
-    readonly_fields = ('created_at', 'updated_at')
+    readonly_fields = ('created_at', 'updated_at', 'all_images_preview')
+    inlines = [CarImageInline]  # Добавляем инлайн для изображений
+
     fieldsets = (
         ('Основная информация', {
             'fields': ('brand', 'model', 'year', 'transmission', 'engine_type')
@@ -45,13 +64,63 @@ class CarAdmin(admin.ModelAdmin):
             'fields': ('status', 'address', 'latitude', 'longitude')
         }),
         ('Владелец и описание', {
-            'fields': ('partner', 'description', 'image')
+            'fields': ('partner', 'description')
+        }),
+        ('Изображения', {
+            'fields': ('all_images_preview',),
+            'classes': ('collapse',),
         }),
         ('Даты', {
             'fields': ('created_at', 'updated_at'),
             'classes': ('collapse',)
         }),
     )
+
+    def main_image_preview(self, obj):
+        """Превью главного изображения в списке"""
+        main_image = obj.get_main_image()
+        if main_image and main_image != '/static/images/no-image.png':
+            return format_html('<img src="{}" style="max-height: 50px; max-width: 50px; border-radius: 5px;" />',
+                               main_image)
+        return "Нет фото"
+
+    main_image_preview.short_description = "Фото"
+
+    def all_images_preview(self, obj):
+        """Превью всех изображений на детальной странице"""
+        images = obj.get_all_images()
+        if images:
+            html = '<div style="display: flex; flex-wrap: wrap; gap: 10px;">'
+            for img in images:
+                html += f'<div style="text-align: center;">'
+                html += f'<img src="{img.image.url}" style="max-height: 100px; max-width: 100px; border-radius: 5px;" />'
+                if img.is_main:
+                    html += '<br><span class="badge bg-success">Главное</span>'
+                if img.caption:
+                    html += f'<br><small>{img.caption}</small>'
+                html += '</div>'
+            html += '</div>'
+            return format_html(html)
+        return "Нет изображений"
+
+    all_images_preview.short_description = "Все изображения"
+
+
+# Модель изображений автомобиля
+class CarImageAdmin(admin.ModelAdmin):
+    list_display = ('car', 'image_preview', 'is_main', 'order', 'created_at')
+    list_filter = ('is_main', 'car__brand')
+    search_fields = ('car__brand', 'car__model', 'caption')
+    list_editable = ('is_main', 'order')
+
+    def image_preview(self, obj):
+        if obj and obj.image:
+            return format_html('<img src="{}" style="max-height: 50px; max-width: 50px; border-radius: 5px;" />',
+                               obj.image.url)
+        return "Нет изображения"
+
+    image_preview.short_description = "Превью"
+
 
 # Модель бронирования
 class BookingAdmin(admin.ModelAdmin):
@@ -75,6 +144,7 @@ class BookingAdmin(admin.ModelAdmin):
         }),
     )
 
+
 # Модель платежа
 class PaymentAdmin(admin.ModelAdmin):
     list_display = ('id', 'booking', 'amount', 'payment_type', 'status', 'payment_date')
@@ -82,12 +152,39 @@ class PaymentAdmin(admin.ModelAdmin):
     search_fields = ('booking__id', 'transaction_id')
     readonly_fields = ('payment_date',)
 
+
 # Модель отзыва
 class ReviewAdmin(admin.ModelAdmin):
-    list_display = ('booking', 'rating', 'car_rating', 'partner_rating', 'created_at')
-    list_filter = ('rating', 'created_at')
-    search_fields = ('booking__id', 'comment')
-    readonly_fields = ('created_at',)
+    list_display = ('id', 'car_info', 'user_info', 'rating', 'car_rating', 'is_published', 'created_at')
+    list_filter = ('rating', 'is_published', 'created_at')
+    search_fields = ('booking__client__username', 'booking__client__email', 'comment')
+    list_editable = ('is_published',)
+    readonly_fields = ('created_at', 'updated_at')
+
+    fieldsets = (
+        ('Информация о бронировании', {
+            'fields': ('booking',)
+        }),
+        ('Оценки', {
+            'fields': ('rating', 'car_rating', 'partner_rating')
+        }),
+        ('Текст отзыва', {
+            'fields': ('comment', 'advantages', 'disadvantages')
+        }),
+        ('Публикация', {
+            'fields': ('is_published', 'created_at', 'updated_at')
+        }),
+    )
+
+    def car_info(self, obj):
+        return str(obj.booking.car)
+
+    car_info.short_description = 'Автомобиль'
+
+    def user_info(self, obj):
+        return obj.booking.client.username
+
+    user_info.short_description = 'Пользователь'
 
 # Регистрация моделей в админке
 admin.site.register(User, UserAdmin)
@@ -98,6 +195,7 @@ admin.site.register(PaymentType)
 admin.site.register(PaymentStatus)
 admin.site.register(CarCategory)
 admin.site.register(Car, CarAdmin)
+admin.site.register(CarImage, CarImageAdmin)  # Регистрируем модель изображений
 admin.site.register(Booking, BookingAdmin)
 admin.site.register(Payment, PaymentAdmin)
 admin.site.register(Review, ReviewAdmin)

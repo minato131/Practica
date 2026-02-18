@@ -1,0 +1,30 @@
+{% extends 'base.html' %}
+
+{% block title %}Новый чат поддержки{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <div class="row">
+        <div class="col-md-6 offset-md-3">
+            <div class="card">
+                <div class="card-header bg-primary text-white">
+                    <h4>Новый чат поддержки</h4>
+                </div>
+                <div class="card-body">
+                    <form method="post">
+                        {% csrf_token %}
+                        <div class="mb-3">
+                            <label for="subject" class="form-label">Тема обращения</label>
+                            <input type="text" class="form-control" id="subject" name="subject"
+                                   placeholder="Кратко опишите ваш вопрос" required>
+                            <small class="text-muted">Например: "Проблема с оплатой", "Вопрос по автомобилю"</small>
+                        </div>
+                        <button type="submit" class="btn btn-primary">Создать чат</button>
+                        <a href="{% url 'support_chat_list' %}" class="btn btn-secondary">Отмена</a>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
