@@ -1,6 +1,6 @@
 from django import forms
 from django.contrib.auth.forms import UserCreationForm
-from .models import User, Car, Booking, Review, SupportChat, SupportMessage
+from .models import User, Car, Booking, Review, SupportChat, SupportMessage,  PartnerPayout
 from django.core.exceptions import ValidationError
 import datetime
 from django.utils import timezone
@@ -108,20 +108,37 @@ class ReviewForm(forms.ModelForm):
         model = Review
         fields = ['rating', 'car_rating', 'partner_rating', 'comment', 'advantages', 'disadvantages']
         widgets = {
-            'rating': forms.RadioSelect(attrs={'class': 'star-rating'}),
-            'car_rating': forms.RadioSelect(attrs={'class': 'star-rating'}),
-            'partner_rating': forms.RadioSelect(attrs={'class': 'star-rating'}),
-            'comment': forms.Textarea(attrs={'class': 'form-control', 'rows': 4, 'placeholder': 'Напишите ваш отзыв...'}),
-            'advantages': forms.Textarea(attrs={'class': 'form-control', 'rows': 2, 'placeholder': 'Что понравилось?'}),
-            'disadvantages': forms.Textarea(attrs={'class': 'form-control', 'rows': 2, 'placeholder': 'Что можно улучшить?'}),
+            'rating': forms.RadioSelect(attrs={'class': 'star-rating', 'data-type': 'main'}),
+            'car_rating': forms.RadioSelect(attrs={'class': 'star-rating', 'data-type': 'car'}),
+            'partner_rating': forms.RadioSelect(attrs={'class': 'star-rating', 'data-type': 'partner'}),
+            'comment': forms.Textarea(attrs={
+                'class': 'form-control',
+                'rows': 4,
+                'placeholder': 'Поделитесь впечатлениями о поездке...'
+            }),
+            'advantages': forms.Textarea(attrs={
+                'class': 'form-control',
+                'rows': 3,
+                'placeholder': 'Что вам особенно понравилось?'
+            }),
+            'disadvantages': forms.Textarea(attrs={
+                'class': 'form-control',
+                'rows': 3,
+                'placeholder': 'Что можно было бы улучшить?'
+            }),
         }
         labels = {
             'rating': 'Общая оценка',
             'car_rating': 'Оценка автомобиля',
             'partner_rating': 'Оценка партнера',
-            'comment': 'Комментарий',
+            'comment': 'Ваш отзыв',
             'advantages': 'Достоинства',
             'disadvantages': 'Недостатки',
+        }
+        help_texts = {
+            'rating': 'Насколько вы довольны поездкой?',
+            'car_rating': 'Как вам состояние автомобиля?',
+            'partner_rating': 'Как вам взаимодействие с владельцем?',
         }
 
 class SupportChatForm(forms.ModelForm):
@@ -145,4 +162,125 @@ class SupportMessageForm(forms.ModelForm):
                 'rows': 3,
                 'placeholder': 'Введите ваше сообщение...'
             })
+        }
+
+class PartnerCarForm(forms.ModelForm):
+    """Форма для добавления/редактирования автомобиля партнером"""
+    class Meta:
+        model = Car
+        fields = [
+            'brand', 'model', 'year', 'transmission', 'engine_type',
+            'price_per_hour', 'price_per_day', 'mileage_limit',
+            'description', 'address', 'category', 'image'
+        ]
+        widgets = {
+            'brand': forms.TextInput(attrs={
+                'class': 'form-control',
+                'placeholder': 'Например: Toyota',
+                'autocomplete': 'off'
+            }),
+            'model': forms.TextInput(attrs={
+                'class': 'form-control',
+                'placeholder': 'Например: Camry',
+                'autocomplete': 'off'
+            }),
+            'year': forms.NumberInput(attrs={
+                'class': 'form-control',
+                'min': 2000,
+                'max': 2026,
+                'placeholder': '2023'
+            }),
+            'transmission': forms.Select(attrs={
+                'class': 'form-select'
+            }),
+            'engine_type': forms.Select(attrs={
+                'class': 'form-select'
+            }),
+            'price_per_hour': forms.NumberInput(attrs={
+                'class': 'form-control',
+                'min': 0,
+                'step': '0.01',
+                'placeholder': '500'
+            }),
+            'price_per_day': forms.NumberInput(attrs={
+                'class': 'form-control',
+                'min': 0,
+                'step': '0.01',
+                'placeholder': '3000'
+            }),
+            'mileage_limit': forms.NumberInput(attrs={
+                'class': 'form-control',
+                'min': 0,
+                'value': 200,
+                'placeholder': '200'
+            }),
+            'description': forms.Textarea(attrs={
+                'class': 'form-control',
+                'rows': 5,
+                'placeholder': 'Опишите ваш автомобиль: состояние, особенности, комплектацию...'
+            }),
+            'address': forms.TextInput(attrs={
+                'class': 'form-control',
+                'placeholder': 'ул. Ленина, 10, Москва',
+                'autocomplete': 'off'
+            }),
+            'category': forms.Select(attrs={
+                'class': 'form-select'
+            }),
+            'image': forms.FileInput(attrs={
+                'class': 'form-control',
+                'accept': 'image/*'
+            }),
+        }
+        labels = {
+            'brand': 'Марка',
+            'model': 'Модель',
+            'year': 'Год выпуска',
+            'transmission': 'Коробка передач',
+            'engine_type': 'Тип двигателя',
+            'price_per_hour': 'Цена за час (₽)',
+            'price_per_day': 'Цена за сутки (₽)',
+            'mileage_limit': 'Лимит пробега в день (км)',
+            'description': 'Описание',
+            'address': 'Адрес',
+            'category': 'Категория',
+            'image': 'Фото автомобиля',
+        }
+        help_texts = {
+            'mileage_limit': 'Максимальный пробег в день без доплаты',
+            'address': 'Адрес, где находится автомобиль',
+            'image': 'Загрузите основное фото автомобиля',
+        }
+
+class PartnerProfileForm(forms.ModelForm):
+    """Форма для редактирования профиля партнера"""
+    class Meta:
+        model = User
+        fields = [
+            'first_name', 'last_name', 'phone',
+            'company_name', 'inn', 'bank_details'
+        ]
+        widgets = {
+            'first_name': forms.TextInput(attrs={'class': 'form-control'}),
+            'last_name': forms.TextInput(attrs={'class': 'form-control'}),
+            'phone': forms.TextInput(attrs={'class': 'form-control', 'placeholder': '+7 (999) 123-45-67'}),
+            'company_name': forms.TextInput(attrs={'class': 'form-control'}),
+            'inn': forms.TextInput(attrs={'class': 'form-control'}),
+            'bank_details': forms.Textarea(attrs={'class': 'form-control', 'rows': 3}),
+        }
+
+class PayoutRequestForm(forms.ModelForm):
+    """Форма для запроса выплаты"""
+    class Meta:
+        model = PartnerPayout
+        fields = ['amount', 'payment_method', 'notes']
+        widgets = {
+            'amount': forms.NumberInput(attrs={'class': 'form-control', 'min': 100, 'step': '100'}),
+            'payment_method': forms.Select(attrs={'class': 'form-select'}),
+            'notes': forms.Textarea(attrs={'class': 'form-control', 'rows': 2, 'placeholder': 'Дополнительная информация'}),
+        }
+        labels = {
+            'amount': 'Сумма выплаты (₽)',
+            'payment_method': 'Способ получения',
+            'notes': 'Комментарий',
         }

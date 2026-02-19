@@ -92,6 +92,40 @@
                         </a>
                     </li>
                     {% endif %}
+                    {% if user.is_authenticated %}
+                        {% if user.is_partner or user.cars.exists %}
+                            <li class="nav-item">
+                                <a class="nav-link" href="{% url 'partner_dashboard' %}">
+                                    <i class="bi bi-person-badge"></i> Партнер
+                                </a>
+                            </li>
+                        {% endif %}
+                    {% endif %}
+                    {% if user.is_authenticated %}
+                        {% if perms.cars.add_car %}
+                            <li class="nav-item">
+                                <a class="nav-link" href="{% url 'partner_dashboard' %}">
+                                    <i class="bi bi-person-badge"></i> Партнер
+                                </a>
+                            </li>
+                        {% endif %}
+
+                        {% if perms.cars.change_booking %}
+                            <li class="nav-item">
+                                <a class="nav-link" href="{% url 'manager_dashboard' %}">
+                                    <i class="bi bi-gear"></i> Менеджер
+                                </a>
+                            </li>
+                        {% endif %}
+
+                        {% if user.is_superuser %}
+                            <li class="nav-item">
+                                <a class="nav-link" href="{% url 'admin_dashboard' %}">
+                                    <i class="bi bi-shield-lock"></i> Админ
+                                </a>
+                            </li>
+                        {% endif %}
+                    {% endif %}
                 </ul>
 
                 <ul class="navbar-nav">

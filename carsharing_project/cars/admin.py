@@ -1,11 +1,11 @@
+from django.utils.translation import gettext_lazy as _
+
+
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
-from django.utils.translation import gettext_lazy as _
+from django.contrib.auth.models import Group
 from django.utils.html import format_html
-from .models import User, Car, CarImage, Booking, CarStatus, BookingStatus, Payment, PaymentType, PaymentStatus, \
-    TransmissionType, CarCategory, Review
-
-
+from .models import *
 class CarImageInline(admin.TabularInline):
     """Инлайн для загрузки нескольких изображений автомобиля"""
     model = CarImage
@@ -185,6 +185,195 @@ class ReviewAdmin(admin.ModelAdmin):
         return obj.booking.client.username
 
     user_info.short_description = 'Пользователь'
+
+
+class GroupListFilter(admin.SimpleListFilter):
+    title = 'Группа'
+    parameter_name = 'group'
+
+    def lookups(self, request, model_admin):
+        return [(g.id, g.name) for g in Group.objects.all()]
+
+    def queryset(self, request, queryset):
+        if self.value():
+            return queryset.filter(groups__id=self.value())
+        return queryset
+
+
+# Расширенный UserAdmin
+class CustomUserAdmin(BaseUserAdmin):
+    list_display = ('username', 'email', 'first_name', 'last_name',
+                    'is_staff', 'is_partner', 'get_groups', 'is_verified')
+    list_filter = ('is_staff', 'is_superuser', 'is_active', 'is_partner',
+                   'is_verified', GroupListFilter)
+    search_fields = ('username', 'first_name', 'last_name', 'email')
+    ordering = ('username',)
+
+    fieldsets = (
+        (None, {'fields': ('username', 'password')}),
+        ('Личная информация', {'fields': ('first_name', 'last_name', 'email',
+                                          'phone', 'driver_license')}),
+        ('Статус партнера', {'fields': ('is_partner', 'balance', 'total_earned',
+                                        'partner_since', 'company_name',
+                                        'inn', 'bank_details')}),
+        ('Права доступа', {'fields': ('is_active', 'is_staff', 'is_superuser',
+                                      'is_verified', 'groups', 'user_permissions')}),
+        ('Даты', {'fields': ('last_login', 'date_joined')}),
+    )
+
+    readonly_fields = ('balance', 'total_earned', 'partner_since')
+
+    def get_groups(self, obj):
+        return ", ".join([g.name for g in obj.groups.all()])
+
+    get_groups.short_description = 'Группы'
+
+    actions = ['add_to_managers', 'add_to_partners', 'add_to_clients']
+
+    def add_to_managers(self, request, queryset):
+        manager_group = Group.objects.get(name='Менеджеры')
+        for user in queryset:
+            user.groups.add(manager_group)
+        self.message_user(request, f'Пользователи добавлены в группу Менеджеры')
+
+    add_to_managers.short_description = 'Добавить в группу Менеджеры'
+
+    def add_to_partners(self, request, queryset):
+        partner_group = Group.objects.get(name='Партнеры')
+        for user in queryset:
+            user.groups.add(partner_group)
+            user.is_partner = True
+            user.save()
+        self.message_user(request, f'Пользователи добавлены в группу Партнеры')
+
+    add_to_partners.short_description = 'Добавить в группу Партнеры'
+
+    def add_to_clients(self, request, queryset):
+        client_group = Group.objects.get(name='Клиенты')
+        for user in queryset:
+            user.groups.clear()
+            user.groups.add(client_group)
+            user.is_partner = False
+            user.save()
+        self.message_user(request, f'Пользователи добавлены в группу Клиенты')
+
+    add_to_clients.short_description = 'Добавить в группу Клиенты'
+
+
+# Обновленный CarAdmin с проверкой прав
+class CarAdmin(admin.ModelAdmin):
+    list_display = ('brand', 'model', 'year', 'status', 'price_per_hour',
+                    'partner', 'get_owner_group', 'created_at')
+    list_filter = ('status', 'category', 'transmission', 'year')
+    search_fields = ('brand', 'model', 'description', 'address')
+    readonly_fields = ('created_at', 'updated_at')
+
+    fieldsets = (
+        ('Основная информация', {
+            'fields': ('brand', 'model', 'year', 'transmission', 'engine_type')
+        }),
+        ('Цены и условия', {
+            'fields': ('price_per_hour', 'price_per_day', 'mileage_limit', 'category')
+        }),
+        ('Статус и локация', {
+            'fields': ('status', 'address', 'latitude', 'longitude')
+        }),
+        ('Владелец и описание', {
+            'fields': ('partner', 'description')
+        }),
+        ('Даты', {
+            'fields': ('created_at', 'updated_at'),
+            'classes': ('collapse',)
+        }),
+    )
+
+    def get_owner_group(self, obj):
+        if obj.partner:
+            groups = obj.partner.groups.all()
+            return ", ".join([g.name for g in groups])
+        return "Нет владельца"
+
+    get_owner_group.short_description = 'Группа владельца'
+
+    # Ограничение видимости для менеджеров
+    def get_queryset(self, request):
+        qs = super().get_queryset(request)
+        if request.user.is_superuser:
+            return qs
+        elif request.user.groups.filter(name='Менеджеры').exists():
+            return qs
+        elif request.user.groups.filter(name='Партнеры').exists():
+            return qs.filter(partner=request.user)
+        return qs.none()
+
+    def has_change_permission(self, request, obj=None):
+        if request.user.is_superuser:
+            return True
+        if request.user.groups.filter(name='Менеджеры').exists():
+            return False  # Менеджеры не могут менять авто
+        if request.user.groups.filter(name='Партнеры').exists() and obj:
+            return obj.partner == request.user
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        if request.user.is_superuser:
+            return True
+        if request.user.groups.filter(name='Партнеры').exists() and obj:
+            return obj.partner == request.user
+        return False
+
+
+# Обновленный BookingAdmin
+class BookingAdmin(admin.ModelAdmin):
+    list_display = ('id', 'car', 'client', 'start_date', 'end_date',
+                    'status', 'calculated_price', 'get_client_group')
+    list_filter = ('status', 'start_date', 'end_date')
+    search_fields = ('client__email', 'client__first_name',
+                     'client__last_name', 'car__brand', 'car__model')
+    readonly_fields = ('created_at', 'updated_at')
+
+    fieldsets = (
+        ('Основная информация', {
+            'fields': ('client', 'car', 'status')
+        }),
+        ('Даты и стоимость', {
+            'fields': ('start_date', 'end_date', 'calculated_price', 'final_price')
+        }),
+        ('Пробег', {
+            'fields': ('start_mileage', 'end_mileage')
+        }),
+        ('Даты', {
+            'fields': ('created_at', 'updated_at'),
+            'classes': ('collapse',)
+        }),
+    )
+
+    def get_client_group(self, obj):
+        groups = obj.client.groups.all()
+        return ", ".join([g.name for g in groups])
+
+    get_client_group.short_description = 'Группа клиента'
+
+    # Ограничение видимости
+    def get_queryset(self, request):
+        qs = super().get_queryset(request)
+        if request.user.is_superuser:
+            return qs
+        elif request.user.groups.filter(name='Менеджеры').exists():
+            return qs
+        elif request.user.groups.filter(name='Партнеры').exists():
+            return qs.filter(car__partner=request.user)
+        return qs.filter(client=request.user)
+
+    def has_change_permission(self, request, obj=None):
+        if request.user.is_superuser:
+            return True
+        if request.user.groups.filter(name='Менеджеры').exists():
+            return True
+        if request.user.groups.filter(name='Партнеры').exists() and obj:
+            return obj.car.partner == request.user
+        return False
+
 
 # Регистрация моделей в админке
 admin.site.register(User, UserAdmin)

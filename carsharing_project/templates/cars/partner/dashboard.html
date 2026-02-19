@@ -1,0 +1,132 @@
+{% extends 'base.html' %}
+
+{% block title %}Панель партнера{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1><i class="bi bi-person-badge"></i> Панель партнера</h1>
+        <div>
+            <a href="{% url 'partner_add_car' %}" class="btn btn-success">
+                <i class="bi bi-plus-circle"></i> Добавить авто
+            </a>
+        </div>
+    </div>
+
+    <!-- Статистика -->
+    <div class="row g-3 mb-4">
+        <div class="col-md-3">
+            <div class="card bg-primary text-white h-100">
+                <div class="card-body">
+                    <h6 class="card-title">Автомобили</h6>
+                    <h2 class="mb-0">{{ cars_count }}</h2>
+                    <small>Доступно: {{ available_cars }} | Забронировано: {{ booked_cars }}</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-success text-white h-100">
+                <div class="card-body">
+                    <h6 class="card-title">Бронирования</h6>
+                    <h2 class="mb-0">{{ total_bookings }}</h2>
+                    <small>Активных: {{ active_bookings }} | Завершено: {{ completed_bookings }}</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-warning text-dark h-100">
+                <div class="card-body">
+                    <h6 class="card-title">Доход</h6>
+                    <h2 class="mb-0">{{ total_revenue }} ₽</h2>
+                    <small>За все время</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-info text-white h-100">
+                <div class="card-body">
+                    <h6 class="card-title">Рейтинг</h6>
+                    <h2 class="mb-0">
+                        {% with avg=user.average_rating %}
+                            {{ avg|default:"0.0" }} ★
+                        {% endwith %}
+                    </h2>
+                    <small>На основе отзывов</small>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- Мои автомобили -->
+        <div class="col-md-6 mb-4">
+            <div class="card h-100">
+                <div class="card-header bg-white">
+                    <h5 class="mb-0">Мои автомобили</h5>
+                </div>
+                <div class="card-body">
+                    {% if cars %}
+                        <div class="list-group">
+                            {% for car in cars %}
+                                <div class="list-group-item">
+                                    <div class="d-flex justify-content-between align-items-center">
+                                        <div>
+                                            <h6 class="mb-1">{{ car.brand }} {{ car.model }}</h6>
+                                            <small class="text-muted">{{ car.year }} • {{ car.price_per_hour }}₽/час</small>
+                                        </div>
+                                        <span class="badge bg-{% if car.status.name == 'доступен' %}success{% else %}warning{% endif %}">
+                                            {{ car.status.name }}
+                                        </span>
+                                    </div>
+                                </div>
+                            {% endfor %}
+                        </div>
+                        <div class="mt-3">
+                            <a href="{% url 'partner_cars' %}" class="btn btn-outline-primary btn-sm">Все авто</a>
+                        </div>
+                    {% else %}
+                        <p class="text-muted">У вас пока нет автомобилей</p>
+                        <a href="{% url 'partner_add_car' %}" class="btn btn-primary">Добавить первый авто</a>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Последние бронирования -->
+        <div class="col-md-6 mb-4">
+            <div class="card h-100">
+                <div class="card-header bg-white">
+                    <h5 class="mb-0">Последние бронирования</h5>
+                </div>
+                <div class="card-body">
+                    {% if recent_bookings %}
+                        <div class="list-group">
+                            {% for booking in recent_bookings %}
+                                <a href="{% url 'partner_booking_detail' booking.id %}" class="list-group-item list-group-item-action">
+                                    <div class="d-flex justify-content-between">
+                                        <div>
+                                            <strong>{{ booking.car.brand }} {{ booking.car.model }}</strong>
+                                            <br>
+                                            <small>{{ booking.client.get_full_name|default:booking.client.username }}</small>
+                                        </div>
+                                        <div class="text-end">
+                                            <span class="badge bg-{{ booking.status.name|lower }}">{{ booking.status.name }}</span>
+                                            <br>
+                                            <small>{{ booking.start_date|date:"d.m.Y" }}</small>
+                                        </div>
+                                    </div>
+                                </a>
+                            {% endfor %}
+                        </div>
+                        <div class="mt-3">
+                            <a href="{% url 'partner_bookings' %}" class="btn btn-outline-primary btn-sm">Все бронирования</a>
+                        </div>
+                    {% else %}
+                        <p class="text-muted">Пока нет бронирований</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,418 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Добавление автомобиля - Каршеринг{% endblock %}
+
+{% block extra_css %}
+<style>
+    .form-section {
+        background: #f8f9fa;
+        border-radius: 10px;
+        padding: 20px;
+        margin-bottom: 25px;
+        border: 1px solid #e9ecef;
+    }
+    .form-section-title {
+        color: #495057;
+        font-size: 1.2rem;
+        font-weight: 600;
+        margin-bottom: 20px;
+        padding-bottom: 10px;
+        border-bottom: 2px solid #dee2e6;
+    }
+    .form-section-title i {
+        color: #0d6efd;
+        margin-right: 10px;
+    }
+    .required-field label::after {
+        content: " *";
+        color: #dc3545;
+        font-weight: bold;
+    }
+    .preview-image {
+        max-width: 200px;
+        max-height: 200px;
+        border-radius: 10px;
+        border: 2px dashed #dee2e6;
+        padding: 10px;
+        margin-top: 10px;
+        display: none;
+    }
+    .preview-image.show {
+        display: block;
+    }
+    .info-tooltip {
+        color: #6c757d;
+        cursor: help;
+        margin-left: 5px;
+    }
+    .info-tooltip:hover {
+        color: #0d6efd;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <div class="row">
+        <div class="col-lg-10 mx-auto">
+            <!-- Заголовок -->
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h1 class="mb-0">
+                    <i class="bi bi-plus-circle text-success"></i> 
+                    Добавление автомобиля
+                </h1>
+                <a href="{% url 'partner_cars' %}" class="btn btn-outline-secondary">
+                    <i class="bi bi-arrow-left"></i> Вернуться к списку
+                </a>
+            </div>
+            
+            <!-- Прогресс бар -->
+            <div class="card mb-4">
+                <div class="card-body">
+                    <div class="progress" style="height: 30px;">
+                        <div class="progress-bar bg-success progress-bar-striped progress-bar-animated" 
+                             style="width: 100%;">
+                            <strong>Шаг 1 из 1: Основная информация</strong>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Форма -->
+            <div class="card shadow">
+                <div class="card-header bg-success text-white py-3">
+                    <h4 class="mb-0">
+                        <i class="bi bi-car-front"></i> 
+                        Информация об автомобиле
+                    </h4>
+                </div>
+                <div class="card-body p-4">
+                    <form method="post" enctype="multipart/form-data" id="carForm">
+                        {% csrf_token %}
+                        
+                        <!-- Основная информация -->
+                        <div class="form-section">
+                            <h5 class="form-section-title">
+                                <i class="bi bi-info-circle"></i> Основная информация
+                            </h5>
+                            <div class="row g-3">
+                                <div class="col-md-6 required-field">
+                                    <label for="{{ form.brand.id_for_label }}" class="form-label">
+                                        {{ form.brand.label }}
+                                        <i class="bi bi-question-circle info-tooltip" 
+                                           data-bs-toggle="tooltip" 
+                                           title="Укажите марку автомобиля, например: Toyota, BMW, Kia"></i>
+                                    </label>
+                                    {{ form.brand }}
+                                    {% if form.brand.errors %}
+                                        <div class="text-danger small mt-1">{{ form.brand.errors }}</div>
+                                    {% endif %}
+                                </div>
+                                
+                                <div class="col-md-6 required-field">
+                                    <label for="{{ form.model.id_for_label }}" class="form-label">
+                                        {{ form.model.label }}
+                                        <i class="bi bi-question-circle info-tooltip" 
+                                           data-bs-toggle="tooltip" 
+                                           title="Укажите модель автомобиля, например: Camry, X5, Rio"></i>
+                                    </label>
+                                    {{ form.model }}
+                                    {% if form.model.errors %}
+                                        <div class="text-danger small mt-1">{{ form.model.errors }}</div>
+                                    {% endif %}
+                                </div>
+                                
+                                <div class="col-md-4 required-field">
+                                    <label for="{{ form.year.id_for_label }}" class="form-label">
+                                        {{ form.year.label }}
+                                        <i class="bi bi-question-circle info-tooltip" 
+                                           data-bs-toggle="tooltip" 
+                                           title="Год выпуска автомобиля (от 2000 до 2026)"></i>
+                                    </label>
+                                    {{ form.year }}
+                                    {% if form.year.errors %}
+                                        <div class="text-danger small mt-1">{{ form.year.errors }}</div>
+                                    {% endif %}
+                                </div>
+                                
+                                <div class="col-md-4 required-field">
+                                    <label for="{{ form.transmission.id_for_label }}" class="form-label">
+                                        {{ form.transmission.label }}
+                                    </label>
+                                    {{ form.transmission }}
+                                    {% if form.transmission.errors %}
+                                        <div class="text-danger small mt-1">{{ form.transmission.errors }}</div>
+                                    {% endif %}
+                                </div>
+                                
+                                <div class="col-md-4 required-field">
+                                    <label for="{{ form.engine_type.id_for_label }}" class="form-label">
+                                        {{ form.engine_type.label }}
+                                    </label>
+                                    {{ form.engine_type }}
+                                    {% if form.engine_type.errors %}
+                                        <div class="text-danger small mt-1">{{ form.engine_type.errors }}</div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Цены и условия -->
+                        <div class="form-section">
+                            <h5 class="form-section-title">
+                                <i class="bi bi-cash"></i> Цены и условия
+                            </h5>
+                            <div class="row g-3">
+                                <div class="col-md-4 required-field">
+                                    <label for="{{ form.price_per_hour.id_for_label }}" class="form-label">
+                                        {{ form.price_per_hour.label }}
+                                    </label>
+                                    <div class="input-group">
+                                        {{ form.price_per_hour }}
+                                        <span class="input-group-text">₽/час</span>
+                                    </div>
+                                    {% if form.price_per_hour.errors %}
+                                        <div class="text-danger small mt-1">{{ form.price_per_hour.errors }}</div>
+                                    {% endif %}
+                                </div>
+                                
+                                <div class="col-md-4 required-field">
+                                    <label for="{{ form.price_per_day.id_for_label }}" class="form-label">
+                                        {{ form.price_per_day.label }}
+                                    </label>
+                                    <div class="input-group">
+                                        {{ form.price_per_day }}
+                                        <span class="input-group-text">₽/сутки</span>
+                                    </div>
+                                    {% if form.price_per_day.errors %}
+                                        <div class="text-danger small mt-1">{{ form.price_per_day.errors }}</div>
+                                    {% endif %}
+                                </div>
+                                
+                                <div class="col-md-4">
+                                    <label for="{{ form.mileage_limit.id_for_label }}" class="form-label">
+                                        {{ form.mileage_limit.label }}
+                                        <i class="bi bi-question-circle info-tooltip" 
+                                           data-bs-toggle="tooltip" 
+                                           title="{{ form.mileage_limit.help_text }}"></i>
+                                    </label>
+                                    <div class="input-group">
+                                        {{ form.mileage_limit }}
+                                        <span class="input-group-text">км</span>
+                                    </div>
+                                    {% if form.mileage_limit.errors %}
+                                        <div class="text-danger small mt-1">{{ form.mileage_limit.errors }}</div>
+                                    {% endif %}
+                                </div>
+                                
+                                <div class="col-md-4 required-field">
+                                    <label for="{{ form.category.id_for_label }}" class="form-label">
+                                        {{ form.category.label }}
+                                    </label>
+                                    {{ form.category }}
+                                    {% if form.category.errors %}
+                                        <div class="text-danger small mt-1">{{ form.category.errors }}</div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Местоположение -->
+                        <div class="form-section">
+                            <h5 class="form-section-title">
+                                <i class="bi bi-geo-alt"></i> Местоположение
+                            </h5>
+                            <div class="row g-3">
+                                <div class="col-12 required-field">
+                                    <label for="{{ form.address.id_for_label }}" class="form-label">
+                                        {{ form.address.label }}
+                                        <i class="bi bi-question-circle info-tooltip" 
+                                           data-bs-toggle="tooltip" 
+                                           title="{{ form.address.help_text }}"></i>
+                                    </label>
+                                    {{ form.address }}
+                                    {% if form.address.errors %}
+                                        <div class="text-danger small mt-1">{{ form.address.errors }}</div>
+                                    {% endif %}
+                                    <small class="text-muted">
+                                        <i class="bi bi-info-circle"></i> 
+                                        Укажите точный адрес, где клиент сможет забрать автомобиль
+                                    </small>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Описание -->
+                        <div class="form-section">
+                            <h5 class="form-section-title">
+                                <i class="bi bi-file-text"></i> Описание
+                            </h5>
+                            <div class="row g-3">
+                                <div class="col-12">
+                                    <label for="{{ form.description.id_for_label }}" class="form-label">
+                                        {{ form.description.label }}
+                                    </label>
+                                    {{ form.description }}
+                                    {% if form.description.errors %}
+                                        <div class="text-danger small mt-1">{{ form.description.errors }}</div>
+                                    {% endif %}
+                                    <small class="text-muted">
+                                        <span id="descriptionCounter">0</span>/500 символов
+                                    </small>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Фото -->
+                        <div class="form-section">
+                            <h5 class="form-section-title">
+                                <i class="bi bi-image"></i> Фотографии
+                            </h5>
+                            <div class="row g-3">
+                                <div class="col-12">
+                                    <label for="{{ form.image.id_for_label }}" class="form-label">
+                                        {{ form.image.label }}
+                                        <i class="bi bi-question-circle info-tooltip" 
+                                           data-bs-toggle="tooltip" 
+                                           title="{{ form.image.help_text }}"></i>
+                                    </label>
+                                    {{ form.image }}
+                                    {% if form.image.errors %}
+                                        <div class="text-danger small mt-1">{{ form.image.errors }}</div>
+                                    {% endif %}
+                                    
+                                    <!-- Предпросмотр изображения -->
+                                    <div id="imagePreview" class="preview-image">
+                                        <img src="" alt="Предпросмотр" class="img-fluid rounded">
+                                    </div>
+                                    
+                                    <div class="mt-2">
+                                        <small class="text-muted">
+                                            <i class="bi bi-info-circle"></i> 
+                                            Рекомендуемый размер: 1200x800px, формат: JPG или PNG
+                                        </small>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Соглашения -->
+                        <div class="form-section">
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" id="agreeTerms" required>
+                                <label class="form-check-label" for="agreeTerms">
+                                    Я подтверждаю, что предоставленная информация корректна, 
+                                    и я имею право сдавать этот автомобиль в аренду
+                                </label>
+                            </div>
+                            <div class="form-check mt-2">
+                                <input class="form-check-input" type="checkbox" id="agreeRules" required>
+                                <label class="form-check-label" for="agreeRules">
+                                    Я согласен с <a href="#" target="_blank">правилами сервиса</a> 
+                                    и условиями партнерской программы
+                                </label>
+                            </div>
+                        </div>
+                        
+                        <!-- Кнопки -->
+                        <div class="row mt-4">
+                            <div class="col-md-6 mb-2">
+                                <button type="submit" class="btn btn-success btn-lg w-100">
+                                    <i class="bi bi-check-circle"></i> 
+                                    Добавить автомобиль
+                                </button>
+                            </div>
+                            <div class="col-md-6 mb-2">
+                                <a href="{% url 'partner_cars' %}" class="btn btn-outline-secondary btn-lg w-100">
+                                    <i class="bi bi-x-circle"></i> 
+                                    Отмена
+                                </a>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+            
+            <!-- Подсказки -->
+            <div class="alert alert-info mt-4">
+                <i class="bi bi-lightbulb fs-4 me-2"></i>
+                <strong>Советы по заполнению:</strong>
+                <ul class="mb-0 mt-2">
+                    <li>Добавьте качественные фотографии - это повышает интерес к автомобилю</li>
+                    <li>Укажите конкурентную цену, изучив предложения других партнеров</li>
+                    <li>Подробное описание помогает клиентам сделать правильный выбор</li>
+                    <li>Точный адрес важен для удобства клиентов</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Инициализация tooltips
+    var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'))
+    var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+        return new bootstrap.Tooltip(tooltipTriggerEl)
+    });
+    
+    // Предпросмотр изображения
+    const imageInput = document.getElementById('{{ form.image.id_for_label }}');
+    const previewContainer = document.getElementById('imagePreview');
+    const previewImage = previewContainer.querySelector('img');
+    
+    imageInput.addEventListener('change', function() {
+        const file = this.files[0];
+        if (file) {
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                previewImage.src = e.target.result;
+                previewContainer.classList.add('show');
+            }
+            reader.readAsDataURL(file);
+        } else {
+            previewContainer.classList.remove('show');
+        }
+    });
+    
+    // Счетчик символов для описания
+    const descriptionField = document.getElementById('{{ form.description.id_for_label }}');
+    const descriptionCounter = document.getElementById('descriptionCounter');
+    
+    descriptionField.addEventListener('input', function() {
+        const length = this.value.length;
+        descriptionCounter.textContent = length;
+        
+        if (length > 500) {
+            descriptionCounter.style.color = '#dc3545';
+        } else if (length > 400) {
+            descriptionCounter.style.color = '#ffc107';
+        } else {
+            descriptionCounter.style.color = '#6c757d';
+        }
+    });
+    
+    // Валидация формы
+    const form = document.getElementById('carForm');
+    form.addEventListener('submit', function(e) {
+        const pricePerHour = parseFloat(document.getElementById('{{ form.price_per_hour.id_for_label }}').value);
+        const pricePerDay = parseFloat(document.getElementById('{{ form.price_per_day.id_for_label }}').value);
+        
+        if (pricePerDay < pricePerHour * 24 * 0.7) {
+            if (!confirm('Цена за сутки очень низкая по сравнению с почасовой. Вы уверены?')) {
+                e.preventDefault();
+            }
+        }
+        
+        if (pricePerDay > pricePerHour * 24 * 1.3) {
+            if (!confirm('Цена за сутки очень высокая по сравнению с почасовой. Вы уверены?')) {
+                e.preventDefault();
+            }
+        }
+    });
+});
+</script>
+{% endblock %}
+{% endblock %}

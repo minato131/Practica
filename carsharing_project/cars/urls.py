@@ -45,13 +45,26 @@ urlpatterns = [
     # Маршруты для менеджера
     path('manager/dashboard/', views.manager_dashboard, name='manager_dashboard'),
     path('manager/bookings/', views.manager_bookings, name='manager_bookings'),
+    path('manager/bookings/<int:booking_id>/', views.booking_detail, name='manager_booking_detail'),
     path('manager/bookings/<int:booking_id>/confirm/', views.confirm_booking, name='confirm_booking'),
+    path('manager/bookings/<int:booking_id>/change-status/', views.change_booking_status, name='change_booking_status'),
     path('manager/cars/', views.manager_cars, name='manager_cars'),
-    path('review/add/<int:booking_id>/', views.add_review, name='add_review'),
 
     # Чат поддержки
     path('support/', views.support_chat_list, name='support_chat_list'),
     path('support/create/', views.support_create_chat, name='support_create_chat'),
     path('support/<int:chat_id>/', views.support_chat_detail, name='support_chat_detail'),
     path('support/<int:chat_id>/close/', views.support_close_chat, name='support_close_chat'),
+        path('review/add/<int:booking_id>/', views.add_review, name='add_review'),
+    # Маршруты для партнера
+    path('partner/', views.partner_dashboard, name='partner_dashboard'),
+    path('partner/become/', views.become_partner, name='become_partner'),
+    path('partner/cars/', views.partner_cars, name='partner_cars'),
+    path('partner/cars/add/', views.partner_add_car, name='partner_add_car'),
+    path('partner/cars/<int:car_id>/edit/', views.partner_edit_car, name='partner_edit_car'),
+    path('partner/cars/<int:car_id>/delete/', views.partner_delete_car, name='partner_delete_car'),
+    path('partner/bookings/', views.partner_bookings, name='partner_bookings'),
+    path('partner/bookings/<int:booking_id>/', views.partner_booking_detail, name='partner_booking_detail'),
+    path('partner/finance/', views.partner_finance, name='partner_finance'),
+    path('partner/finance/request-payout/', views.partner_request_payout, name='partner_request_payout'),
 ]

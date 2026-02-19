@@ -15,6 +15,16 @@ from .models import SupportChat, SupportMessage
 from .forms import SupportChatForm, SupportMessageForm
 from django.db.models import Q
 
+
+# Проверки для разных ролей
+def is_admin(user):
+    return user.is_superuser
+
+def is_manager(user):
+    return user.is_staff and not user.is_superuser
+
+def is_manager_or_admin(user):
+    return user.is_staff  # staff включает и менеджеров, и админов
 # Главная страница
 def home(request):
     cars = Car.objects.filter(status__name='доступен').order_by('-created_at')[:6]
@@ -303,12 +313,18 @@ def my_bookings(request):
 # Детали бронирования
 @login_required
 def booking_detail(request, booking_id):
-    booking = get_object_or_404(Booking, id=booking_id, client=request.user)
+    """Детали бронирования"""
+    if request.user.is_staff:  # Менеджеры и админы могут смотреть все
+        booking = get_object_or_404(Booking, id=booking_id)
+    else:
+        booking = get_object_or_404(Booking, id=booking_id, client=request.user)
+
     payments = Payment.objects.filter(booking=booking)
 
     # Проверяем, можно ли оставить отзыв
     can_review = (booking.status.name == 'завершено' and
-                  not hasattr(booking, 'review'))
+                  not hasattr(booking, 'review') and
+                  booking.client == request.user)  # Только свой отзыв
 
     context = {
         'booking': booking,
@@ -316,7 +332,6 @@ def booking_detail(request, booking_id):
         'can_review': can_review,
     }
     return render(request, 'cars/booking_detail.html', context)
-
 
 # Отмена бронирования
 @login_required
@@ -369,8 +384,14 @@ def profile(request):
         ).aggregate(Sum('calculated_price'))['calculated_price__sum'] or 0,
     }
 
+    # Получаем отзывы пользователя через бронирования
+    user_reviews = Review.objects.filter(booking__client=user).select_related(
+        'booking__car', 'booking'
+    ).order_by('-created_at')
+
     context = {
         'user_stats': user_stats,
+        'user_reviews': user_reviews,  # Передаем отзывы в шаблон
     }
     return render(request, 'cars/profile.html', context)
 
@@ -498,11 +519,26 @@ def add_review(request, booking_id):
         if form.is_valid():
             review = form.save(commit=False)
             review.booking = booking
+
+            # Если партнерская оценка не указана, ставим среднюю
+            if not review.partner_rating:
+                review.partner_rating = review.rating
+
             review.save()
-            messages.success(request, 'Спасибо за ваш отзыв!')
+            messages.success(request, 'Спасибо за ваш отзыв! Он поможет другим пользователям сделать правильный выбор.')
             return redirect('car_detail', car_id=booking.car.id)
+        else:
+            for field, errors in form.errors.items():
+                for error in errors:
+                    messages.error(request, f'{field}: {error}')
     else:
-        form = ReviewForm()
+        # Предзаполняем некоторые поля
+        initial_data = {
+            'rating': 5,
+            'car_rating': 5,
+            'partner_rating': 5,
+        }
+        form = ReviewForm(initial=initial_data)
 
     return render(request, 'cars/add_review.html', {
         'form': form,
@@ -723,28 +759,38 @@ def manage_bookings(request):
 
 
 # Изменение статуса бронирования
-@user_passes_test(is_admin)
+@user_passes_test(is_manager_or_admin)
 def change_booking_status(request, booking_id):
+    """Изменение статуса бронирования"""
     booking = get_object_or_404(Booking, id=booking_id)
 
     if request.method == 'POST':
         new_status_id = request.POST.get('status')
         new_status = get_object_or_404(BookingStatus, id=new_status_id)
+        old_status = booking.status
 
         booking.status = new_status
+        booking.save()
 
-        # Если статус меняется на "завершено" или "отменено", освобождаем автомобиль
-        if new_status.name in ['завершено', 'отменено']:
-            booking.car.status = CarStatus.objects.get(name='доступен')
+        # Логика изменения статуса автомобиля
+        if new_status.name == 'завершено' or new_status.name == 'отменено':
+            # Освобождаем автомобиль
+            available_status = CarStatus.objects.get(name='доступен')
+            booking.car.status = available_status
             booking.car.save()
         elif new_status.name == 'активно':
-            booking.car.status = CarStatus.objects.get(name='забронирован')
+            # Бронируем автомобиль
+            booked_status = CarStatus.objects.get(name='забронирован')
+            booking.car.status = booked_status
             booking.car.save()
 
-        booking.save()
-        messages.success(request, f'Статус бронирования изменен на "{new_status.name}"')
+        messages.success(request,
+                         f'Статус бронирования #{booking.id} изменен с "{old_status.name}" на "{new_status.name}"')
 
-    return redirect('manage_bookings')
+        # Возвращаемся на ту же страницу
+        return redirect(request.META.get('HTTP_REFERER', 'manager_bookings'))
+
+    return redirect('manager_bookings')
 
 
 # Управление пользователями
@@ -903,39 +949,61 @@ def manager_dashboard(request):
 @user_passes_test(is_manager_or_admin)
 def manager_bookings(request):
     """Управление бронированиями для менеджера"""
-    bookings = Booking.objects.select_related('car', 'client', 'status').all()
+    bookings = Booking.objects.select_related(
+        'car', 'client', 'status'
+    ).all().order_by('-created_at')
 
-    # Фильтрация
+    # Фильтрация по статусу
     status_filter = request.GET.get('status')
-
     if status_filter and status_filter != 'all':
         bookings = bookings.filter(status_id=status_filter)
 
-    # Получаем фильтры
+    # Фильтрация по дате
+    date_from = request.GET.get('date_from')
+    date_to = request.GET.get('date_to')
+
+    if date_from:
+        bookings = bookings.filter(start_date__gte=date_from)
+    if date_to:
+        bookings = bookings.filter(end_date__lte=date_to)
+
+    # Поиск по автомобилю или клиенту
+    search = request.GET.get('search')
+    if search:
+        bookings = bookings.filter(
+            Q(car__brand__icontains=search) |
+            Q(car__model__icontains=search) |
+            Q(client__email__icontains=search) |
+            Q(client__username__icontains=search) |
+            Q(id__icontains=search)
+        )
+
+    # Получаем все статусы для фильтра
     statuses = BookingStatus.objects.all()
 
-    # Подсчет статистики
+    # Статистика
     total_bookings = bookings.count()
-    active_count = 0
-    confirmed_count = 0
-    completed_count = 0
+    active_count = bookings.filter(status__name='активно').count()
+    confirmed_count = bookings.filter(status__name='подтверждено').count()
+    completed_count = bookings.filter(status__name='завершено').count()
 
-    for booking in bookings:
-        if booking.status.name == 'активно':
-            active_count += 1
-        elif booking.status.name == 'подтверждено':
-            confirmed_count += 1
-        elif booking.status.name == 'завершено':
-            completed_count += 1
+    # Пагинация
+    from django.core.paginator import Paginator
+    paginator = Paginator(bookings, 20)  # 20 бронирований на страницу
+    page_number = request.GET.get('page')
+    page_obj = paginator.get_page(page_number)
 
     context = {
-        'bookings': bookings,
+        'bookings': page_obj,
         'statuses': statuses,
         'selected_status': status_filter,
         'total_bookings': total_bookings,
         'active_count': active_count,
         'confirmed_count': confirmed_count,
         'completed_count': completed_count,
+        'date_from': date_from,
+        'date_to': date_to,
+        'search': search,
     }
     return render(request, 'cars/manager/bookings.html', context)
 
@@ -948,6 +1016,8 @@ def confirm_booking(request, booking_id):
     if request.method == 'POST':
         # Получаем статус "активно"
         active_status = BookingStatus.objects.get(name='активно')
+        old_status = booking.status.name
+
         booking.status = active_status
         booking.save()
 
@@ -956,7 +1026,10 @@ def confirm_booking(request, booking_id):
         booking.car.status = booked_status
         booking.car.save()
 
-        messages.success(request, f'Бронирование #{booking.id} успешно подтверждено!')
+        messages.success(request,
+                         f'Бронирование #{booking.id} подтверждено! Статус изменен с "{old_status}" на "активно"')
+
+        # Возвращаемся на страницу бронирований
         return redirect('manager_bookings')
 
     context = {
@@ -1008,138 +1081,341 @@ def manager_cars(request):
     return render(request, 'cars/manager/cars.html', context)
 
 
+# ============ ФУНКЦИИ ДЛЯ ПАРТНЕРА ============
+
+def is_partner(user):
+    return user.is_partner or user.cars.exists() or user.is_staff
+
+
 @login_required
-def add_review(request, booking_id):
-    """Добавление отзыва к завершенному бронированию"""
-    booking = get_object_or_404(Booking, id=booking_id, client=request.user)
+def partner_dashboard(request):
+    """Главная панель партнера"""
+    if not request.user.is_partner and not request.user.cars.exists():
+        # Если пользователь не партнер, предлагаем стать партнером
+        return redirect('become_partner')
 
-    # Проверяем, что бронирование завершено
-    if booking.status.name != 'завершено':
-        messages.error(request, 'Отзыв можно оставить только после завершения бронирования')
-        return redirect('booking_detail', booking_id=booking.id)
+    user = request.user
+    cars = Car.objects.filter(partner=user)
 
-    # Проверяем, нет ли уже отзыва
-    if hasattr(booking, 'review'):
-        messages.error(request, 'Вы уже оставили отзыв для этого бронирования')
-        return redirect('booking_detail', booking_id=booking.id)
+    # Статистика
+    total_bookings = Booking.objects.filter(car__in=cars).count()
+    active_bookings = Booking.objects.filter(
+        car__in=cars,
+        status__name__in=['подтверждено', 'активно']
+    ).count()
+    completed_bookings = Booking.objects.filter(
+        car__in=cars,
+        status__name='завершено'
+    ).count()
+
+    # Доход
+    total_revenue = Booking.objects.filter(
+        car__in=cars,
+        status__name='завершено'
+    ).aggregate(total=Sum('calculated_price'))['total'] or 0
+
+    # Последние бронирования
+    recent_bookings = Booking.objects.filter(
+        car__in=cars
+    ).select_related('car', 'client', 'status').order_by('-created_at')[:10]
+
+    # Автомобили
+    cars_count = cars.count()
+    available_cars = cars.filter(status__name='доступен').count()
+    booked_cars = cars.filter(status__name='забронирован').count()
+
+    context = {
+        'cars': cars[:5],  # Последние 5 авто
+        'cars_count': cars_count,
+        'available_cars': available_cars,
+        'booked_cars': booked_cars,
+        'total_bookings': total_bookings,
+        'active_bookings': active_bookings,
+        'completed_bookings': completed_bookings,
+        'total_revenue': total_revenue,
+        'recent_bookings': recent_bookings,
+        'user': user,
+    }
+    return render(request, 'cars/partner/dashboard.html', context)
+
+
+@login_required
+def become_partner(request):
+    """Стать партнером"""
+    if request.method == 'POST':
+        form = PartnerProfileForm(request.POST, instance=request.user)
+        if form.is_valid():
+            user = form.save(commit=False)
+            user.is_partner = True
+            user.save()
+            messages.success(request, 'Поздравляем! Теперь вы партнер. Добавьте свои автомобили.')
+            return redirect('partner_dashboard')
+    else:
+        form = PartnerProfileForm(instance=request.user)
+
+    return render(request, 'cars/partner/become_partner.html', {'form': form})
+
+
+@login_required
+def partner_cars(request):
+    """Управление автомобилями партнера"""
+    if not request.user.is_partner:
+        return redirect('become_partner')
+
+    cars = Car.objects.filter(partner=request.user).select_related('status', 'category')
+
+    # Фильтрация
+    status_filter = request.GET.get('status')
+    if status_filter and status_filter != 'all':
+        cars = cars.filter(status_id=status_filter)
+
+    statuses = CarStatus.objects.all()
+
+    context = {
+        'cars': cars,
+        'statuses': statuses,
+        'selected_status': status_filter,
+        'total_cars': cars.count(),
+    }
+    return render(request, 'cars/partner/cars.html', context)
+
+
+@login_required
+def partner_add_car(request):
+    """Добавление автомобиля партнером"""
+    if not request.user.is_partner:
+        return redirect('become_partner')
 
     if request.method == 'POST':
-        form = ReviewForm(request.POST)
+        form = PartnerCarForm(request.POST, request.FILES)
         if form.is_valid():
-            review = form.save(commit=False)
-            review.booking = booking
-            review.save()
-            messages.success(request, 'Спасибо за ваш отзыв!')
-            return redirect('car_detail', car_id=booking.car.id)
+            car = form.save(commit=False)
+            car.partner = request.user
+            # Статус "доступен" по умолчанию
+            available_status = CarStatus.objects.get(name='доступен')
+            car.status = available_status
+            car.save()
+            messages.success(request, f'Автомобиль {car.brand} {car.model} успешно добавлен!')
+            return redirect('partner_cars')
+        else:
+            for field, errors in form.errors.items():
+                for error in errors:
+                    messages.error(request, f'{field}: {error}')
     else:
-        form = ReviewForm()
+        form = PartnerCarForm()
 
-    return render(request, 'cars/add_review.html', {
+    # Получаем данные для выпадающих списков
+    categories = CarCategory.objects.all()
+    transmissions = TransmissionType.objects.all()
+
+    context = {
         'form': form,
-        'booking': booking
-    })
-
-
-login_required
-
-
-def support_chat_list(request):
-    """Список чатов поддержки"""
-    if request.user.is_staff:
-        # Админ видит все активные чаты
-        chats = SupportChat.objects.filter(is_closed=False).order_by('-updated_at')
-    else:
-        # Пользователь видит свои чаты
-        chats = SupportChat.objects.filter(user=request.user).order_by('-updated_at')
-
-    return render(request, 'support/chat_list.html', {'chats': chats})
+        'categories': categories,
+        'transmissions': transmissions,
+    }
+    return render(request, 'cars/partner/add_car.html', context)
 
 
 @login_required
-def support_chat_detail(request, chat_id):
-    """Детальная страница чата"""
-    if request.user.is_staff:
-        chat = get_object_or_404(SupportChat, id=chat_id)
-    else:
-        chat = get_object_or_404(SupportChat, id=chat_id, user=request.user)
-
-    # Помечаем сообщения как прочитанные
-    chat.messages.filter(is_read=False).exclude(sender=request.user).update(is_read=True)
+def partner_edit_car(request, car_id):
+    """Редактирование автомобиля партнером"""
+    car = get_object_or_404(Car, id=car_id, partner=request.user)
 
     if request.method == 'POST':
-        form = SupportMessageForm(request.POST)
+        form = PartnerCarForm(request.POST, request.FILES, instance=car)
         if form.is_valid():
-            message = form.save(commit=False)
-            message.chat = chat
-            message.sender = request.user
-            message.save()
-
-            # Если это первое сообщение от админа, назначаем админа на чат
-            if request.user.is_staff and not chat.admin:
-                chat.admin = request.user
-                chat.save()
-
-            return redirect('support_chat_detail', chat_id=chat.id)
+            form.save()
+            messages.success(request, 'Автомобиль успешно обновлен')
+            return redirect('partner_cars')
     else:
-        form = SupportMessageForm()
+        form = PartnerCarForm(instance=car)
 
-    messages_list = chat.messages.all()
-
-    return render(request, 'support/chat_detail.html', {
-        'chat': chat,
-        'messages': messages_list,
-        'form': form
-    })
+    context = {
+        'form': form,
+        'car': car,
+    }
+    return render(request, 'cars/partner/edit_car.html', context)
 
 
 @login_required
-def support_create_chat(request):
-    """Создание нового чата"""
+def partner_delete_car(request, car_id):
+    """Удаление автомобиля партнером"""
+    car = get_object_or_404(Car, id=car_id, partner=request.user)
+
     if request.method == 'POST':
-        form = SupportChatForm(request.POST)
-        if form.is_valid():
-            chat = form.save(commit=False)
-            chat.user = request.user
-            chat.save()
+        car.delete()
+        messages.success(request, 'Автомобиль успешно удален')
+        return redirect('partner_cars')
 
-            # Добавляем системное сообщение
-            SupportMessage.objects.create(
-                chat=chat,
-                sender=request.user,
-                message=f"Чат создан. Тема: {chat.subject}",
-                is_system=True
-            )
-
-            messages.success(request, 'Чат поддержки создан. Ожидайте ответа администратора.')
-            return redirect('support_chat_detail', chat_id=chat.id)
-    else:
-        form = SupportChatForm()
-
-    return render(request, 'support/create_chat.html', {'form': form})
+    return render(request, 'cars/partner/delete_car.html', {'car': car})
 
 
 @login_required
-def support_close_chat(request, chat_id):
-    """Закрытие чата"""
-    if request.user.is_staff:
-        chat = get_object_or_404(SupportChat, id=chat_id)
-    else:
-        chat = get_object_or_404(SupportChat, id=chat_id, user=request.user)
+def partner_bookings(request):
+    """Просмотр бронирований автомобилей партнера"""
+    if not request.user.is_partner:
+        return redirect('become_partner')
 
-    if request.method == 'POST':
-        chat.is_closed = True
-        chat.is_active = False
-        chat.closed_at = timezone.now()
-        chat.save()
+    bookings = Booking.objects.filter(
+        car__partner=request.user
+    ).select_related('car', 'client', 'status').order_by('-created_at')
 
-        SupportMessage.objects.create(
-            chat=chat,
-            sender=request.user,
-            message="Чат закрыт",
-            is_system=True
+    # Фильтрация по статусу
+    status_filter = request.GET.get('status')
+    if status_filter and status_filter != 'all':
+        bookings = bookings.filter(status_id=status_filter)
+
+    # Фильтрация по дате
+    date_from = request.GET.get('date_from')
+    date_to = request.GET.get('date_to')
+
+    if date_from:
+        bookings = bookings.filter(start_date__gte=date_from)
+    if date_to:
+        bookings = bookings.filter(end_date__lte=date_to)
+
+    # Поиск
+    search = request.GET.get('search')
+    if search:
+        bookings = bookings.filter(
+            Q(car__brand__icontains=search) |
+            Q(car__model__icontains=search) |
+            Q(client__email__icontains=search) |
+            Q(id__icontains=search)
         )
 
-        messages.success(request, 'Чат закрыт')
-        return redirect('support_chat_list')
+    statuses = BookingStatus.objects.all()
 
-    return render(request, 'support/close_chat.html', {'chat': chat})
+    # Статистика
+    total_bookings = bookings.count()
+    active_count = bookings.filter(status__name='активно').count()
+    confirmed_count = bookings.filter(status__name='подтверждено').count()
+    completed_count = bookings.filter(status__name='завершено').count()
+
+    # Доход
+    total_revenue = bookings.filter(
+        status__name='завершено'
+    ).aggregate(total=Sum('calculated_price'))['total'] or 0
+
+    context = {
+        'bookings': bookings,
+        'statuses': statuses,
+        'selected_status': status_filter,
+        'total_bookings': total_bookings,
+        'active_count': active_count,
+        'confirmed_count': confirmed_count,
+        'completed_count': completed_count,
+        'total_revenue': total_revenue,
+        'date_from': date_from,
+        'date_to': date_to,
+        'search': search,
+    }
+    return render(request, 'cars/partner/bookings.html', context)
+
+
+@login_required
+def partner_booking_detail(request, booking_id):
+    """Детали бронирования для партнера"""
+    booking = get_object_or_404(
+        Booking,
+        id=booking_id,
+        car__partner=request.user
+    )
+
+    payments = Payment.objects.filter(booking=booking)
+
+    context = {
+        'booking': booking,
+        'payments': payments,
+    }
+    return render(request, 'cars/partner/booking_detail.html', context)
+
+
+@login_required
+def partner_finance(request):
+    """Финансовая статистика партнера"""
+    if not request.user.is_partner:
+        return redirect('become_partner')
+
+    bookings = Booking.objects.filter(
+        car__partner=request.user,
+        status__name='завершено'
+    ).order_by('-end_date')
+
+    # Общая статистика
+    total_revenue = bookings.aggregate(total=Sum('calculated_price'))['total'] or 0
+
+    # Статистика по месяцам
+    from django.db.models.functions import TruncMonth
+    monthly_stats = bookings.annotate(
+        month=TruncMonth('end_date')
+    ).values('month').annotate(
+        total=Sum('calculated_price'),
+        count=Count('id')
+    ).order_by('-month')
+
+    # Выплаты
+    payouts = PartnerPayout.objects.filter(partner=request.user).order_by('-created_at')
+    total_paid = payouts.filter(status='completed').aggregate(total=Sum('amount'))['total'] or 0
+    pending_payouts = payouts.filter(status='pending').aggregate(total=Sum('amount'))['total'] or 0
+
+    # Доступно к выводу
+    available_for_payout = total_revenue - total_paid
+
+    context = {
+        'total_revenue': total_revenue,
+        'total_paid': total_paid,
+        'pending_payouts': pending_payouts,
+        'available_for_payout': available_for_payout,
+        'monthly_stats': monthly_stats,
+        'payouts': payouts[:10],
+    }
+    return render(request, 'cars/partner/finance.html', context)
+
+
+@login_required
+def partner_request_payout(request):
+    """Запрос на выплату"""
+    if request.method == 'POST':
+        form = PayoutRequestForm(request.POST)
+        if form.is_valid():
+            payout = form.save(commit=False)
+            payout.partner = request.user
+
+            # Проверяем, достаточно ли средств
+            available = get_available_balance(request.user)
+            if payout.amount > available:
+                messages.error(request, 'Недостаточно средств для вывода')
+                return redirect('partner_finance')
+
+            payout.save()
+            messages.success(request, f'Запрос на выплату {payout.amount}₽ отправлен')
+            return redirect('partner_finance')
+    else:
+        form = PayoutRequestForm()
+
+    context = {
+        'form': form,
+        'available': get_available_balance(request.user),
+    }
+    return render(request, 'cars/partner/request_payout.html', context)
+
+
+def get_available_balance(user):
+    """Получить доступный баланс партнера"""
+    total_revenue = Booking.objects.filter(
+        car__partner=user,
+        status__name='завершено'
+    ).aggregate(total=Sum('calculated_price'))['total'] or 0
+
+    total_paid = PartnerPayout.objects.filter(
+        partner=user,
+        status='completed'
+    ).aggregate(total=Sum('amount'))['total'] or 0
+
+    pending = PartnerPayout.objects.filter(
+        partner=user,
+        status='pending'
+    ).aggregate(total=Sum('amount'))['total'] or 0
+
+    return total_revenue - total_paid - pending

@@ -30,6 +30,40 @@ class User(AbstractUser):
     REQUIRED_FIELDS = ['username']
 
     objects = CustomUserManager()
+    balance = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        default=0,
+        verbose_name='Баланс'
+    )
+    total_earned = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        default=0,
+        verbose_name='Всего заработано'
+    )
+    partner_since = models.DateTimeField(
+        auto_now_add=True,
+        verbose_name='Партнер с'
+    )
+    is_partner = models.BooleanField(
+        default=False,
+        verbose_name='Является партнером'
+    )
+    company_name = models.CharField(
+        max_length=200,
+        blank=True,
+        verbose_name='Название компании'
+    )
+    inn = models.CharField(
+        max_length=12,
+        blank=True,
+        verbose_name='ИНН'
+    )
+    bank_details = models.TextField(
+        blank=True,
+        verbose_name='Банковские реквизиты'
+    )
 
     def __str__(self):
         return f"{self.email} ({self.get_role_display()})"
@@ -249,26 +283,36 @@ class Review(models.Model):
     )
     rating = models.IntegerField(
         choices=[(i, i) for i in range(1, 6)],
-        verbose_name='Общая оценка'
+        verbose_name='Общая оценка',
+        help_text='Оцените поездку в целом'
     )
     car_rating = models.IntegerField(
         choices=[(i, i) for i in range(1, 6)],
-        verbose_name='Оценка автомобиля'
+        verbose_name='Оценка автомобиля',
+        help_text='Оцените состояние автомобиля',
+        null=True,
+        blank=True
     )
     partner_rating = models.IntegerField(
         choices=[(i, i) for i in range(1, 6)],
         verbose_name='Оценка партнера',
+        help_text='Оцените взаимодействие с владельцем',
         null=True,
         blank=True
     )
-    comment = models.TextField(verbose_name='Комментарий')
+    comment = models.TextField(
+        verbose_name='Комментарий',
+        help_text='Расскажите о вашем опыте'
+    )
     advantages = models.TextField(
         verbose_name='Достоинства',
-        blank=True
+        blank=True,
+        help_text='Что понравилось больше всего?'
     )
     disadvantages = models.TextField(
         verbose_name='Недостатки',
-        blank=True
+        blank=True,
+        help_text='Что можно улучшить?'
     )
     is_published = models.BooleanField(
         default=True,
@@ -394,3 +438,63 @@ class SupportMessage(models.Model):
 
     def __str__(self):
         return f'Сообщение от {self.sender.username} в чате #{self.chat.id}'
+
+class PartnerPayout(models.Model):
+    """Модель выплат партнеру"""
+    partner = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name='payouts',
+        verbose_name='Партнер'
+    )
+    amount = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        verbose_name='Сумма'
+    )
+    status = models.CharField(
+        max_length=20,
+        choices=[
+            ('pending', 'Ожидает'),
+            ('processing', 'В обработке'),
+            ('completed', 'Выполнено'),
+            ('cancelled', 'Отменено')
+        ],
+        default='pending',
+        verbose_name='Статус'
+    )
+    payment_method = models.CharField(
+        max_length=50,
+        choices=[
+            ('bank', 'Банковский перевод'),
+            ('card', 'На карту'),
+            ('cash', 'Наличными')
+        ],
+        verbose_name='Способ выплаты'
+    )
+    transaction_id = models.CharField(
+        max_length=100,
+        blank=True,
+        verbose_name='ID транзакции'
+    )
+    notes = models.TextField(
+        blank=True,
+        verbose_name='Примечания'
+    )
+    created_at = models.DateTimeField(
+        auto_now_add=True,
+        verbose_name='Дата создания'
+    )
+    processed_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        verbose_name='Дата обработки'
+    )
+
+    class Meta:
+        verbose_name = 'Выплата партнеру'
+        verbose_name_plural = 'Выплаты партнерам'
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f'Выплата #{self.id} - {self.partner.username} - {self.amount}₽'

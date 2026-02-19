@@ -1,74 +1,466 @@
 {% extends 'base.html' %}
 {% load static %}
 
-{% block title %}Оставить отзыв{% endblock %}
+{% block title %}Оставить отзыв - Каршеринг{% endblock %}
 
 {% block extra_css %}
 <style>
-    .star-rating {
+    /* Стили для звездного рейтинга */
+    .rating-container {
         display: flex;
-        gap: 10px;
         flex-direction: row-reverse;
         justify-content: flex-end;
+        gap: 8px;
     }
-    .star-rating input {
+    .rating-input {
         display: none;
     }
-    .star-rating label {
-        font-size: 30px;
+    .rating-label {
+        font-size: 2.2rem;
         color: #ddd;
         cursor: pointer;
-        transition: color 0.2s;
+        transition: all 0.2s ease;
     }
-    .star-rating label:hover,
-    .star-rating label:hover ~ label,
-    .star-rating input:checked ~ label {
+    .rating-label:hover,
+    .rating-label:hover ~ .rating-label,
+    .rating-input:checked ~ .rating-label {
         color: #ffc107;
+        transform: scale(1.1);
+        text-shadow: 0 0 10px rgba(255, 193, 7, 0.3);
+    }
+
+    /* Стили для карточки бронирования */
+    .booking-info-card {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        border-radius: 20px;
+        padding: 25px;
+        margin-bottom: 30px;
+        box-shadow: 0 15px 35px rgba(102, 126, 234, 0.3);
+        position: relative;
+        overflow: hidden;
+    }
+    .booking-info-card::before {
+        content: '';
+        position: absolute;
+        top: -50px;
+        right: -50px;
+        width: 200px;
+        height: 200px;
+        background: rgba(255,255,255,0.1);
+        border-radius: 50%;
+    }
+    .booking-info-card::after {
+        content: '';
+        position: absolute;
+        bottom: -80px;
+        left: -80px;
+        width: 300px;
+        height: 300px;
+        background: rgba(255,255,255,0.1);
+        border-radius: 50%;
+    }
+
+    /* Стили для формы */
+    .review-form-card {
+        background: white;
+        border-radius: 20px;
+        box-shadow: 0 15px 35px rgba(0,0,0,0.1);
+        overflow: hidden;
+        margin-bottom: 30px;
+    }
+    .review-form-header {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        padding: 25px;
+        text-align: center;
+    }
+    .review-form-header h3 {
+        margin: 0;
+        font-weight: 600;
+    }
+    .review-form-header p {
+        margin: 10px 0 0;
+        opacity: 0.9;
+    }
+    .review-form-body {
+        padding: 35px;
+    }
+
+    /* Стили для полей формы */
+    .form-group {
+        margin-bottom: 25px;
+    }
+    .form-group label {
+        font-weight: 600;
+        color: #333;
+        margin-bottom: 8px;
+        display: block;
+        font-size: 1rem;
+    }
+    .form-group .help-text {
+        font-size: 0.85rem;
+        color: #666;
+        margin-top: 5px;
+        display: block;
+    }
+    .form-control {
+        border: 2px solid #e9ecef;
+        border-radius: 12px;
+        padding: 12px 18px;
+        transition: all 0.3s;
+        font-size: 1rem;
+        width: 100%;
+    }
+    .form-control:focus {
+        border-color: #667eea;
+        box-shadow: 0 0 0 0.2rem rgba(102, 126, 234, 0.25);
+        outline: none;
+    }
+
+    /* Стили для кнопок */
+    .btn-submit {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        border: none;
+        padding: 15px 30px;
+        font-size: 1.1rem;
+        font-weight: 600;
+        border-radius: 50px;
+        width: 100%;
+        transition: all 0.3s;
+        cursor: pointer;
+        display: inline-block;
+        text-align: center;
+    }
+    .btn-submit:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 15px 35px rgba(102, 126, 234, 0.4);
+    }
+    .btn-submit:active {
+        transform: translateY(0);
+    }
+    .btn-cancel {
+        background: white;
+        color: #667eea;
+        border: 2px solid #667eea;
+        padding: 13px 30px;
+        font-size: 1.1rem;
+        font-weight: 600;
+        border-radius: 50px;
+        width: 100%;
+        transition: all 0.3s;
+        text-align: center;
+        text-decoration: none;
+        display: inline-block;
+    }
+    .btn-cancel:hover {
+        background: #667eea;
+        color: white;
+        text-decoration: none;
+        transform: translateY(-2px);
+        box-shadow: 0 10px 25px rgba(102, 126, 234, 0.3);
+    }
+
+    /* Стили для сообщений об ошибках */
+    .errorlist {
+        list-style: none;
+        padding: 0;
+        margin: 5px 0 0;
+    }
+    .errorlist li {
+        color: #dc3545;
+        font-size: 0.9rem;
+        background: #f8d7da;
+        border-radius: 8px;
+        padding: 8px 12px;
+        margin-top: 5px;
+        border-left: 3px solid #dc3545;
+    }
+
+    /* Анимация для звезд */
+    @keyframes starPulse {
+        0% { transform: scale(1); }
+        50% { transform: scale(1.2); }
+        100% { transform: scale(1); }
+    }
+    .rating-label:active {
+        animation: starPulse 0.3s ease;
+    }
+
+    /* Счетчик символов */
+    .char-counter {
+        font-size: 0.85rem;
+        margin-top: 5px;
+        text-align: right;
+    }
+
+    /* Иконка автомобиля */
+    .car-icon {
+        font-size: 4rem;
+        opacity: 0.2;
+        position: absolute;
+        bottom: 10px;
+        right: 20px;
+        transform: rotate(-5deg);
+    }
+
+    /* Адаптивность */
+    @media (max-width: 768px) {
+        .rating-label {
+            font-size: 1.8rem;
+        }
+        .review-form-body {
+            padding: 20px;
+        }
     }
 </style>
 {% endblock %}
 
 {% block content %}
-<div class="container py-4">
+<div class="container py-5">
     <div class="row">
-        <div class="col-md-8 offset-md-2">
-            <div class="card">
-                <div class="card-header bg-primary text-white">
-                    <h3>Оставить отзыв</h3>
-                </div>
-                <div class="card-body">
-                    <div class="alert alert-info">
-                        <h5>Бронирование #{{ booking.id }}</h5>
-                        <p>
-                            <strong>Автомобиль:</strong> {{ booking.car.brand }} {{ booking.car.model }}<br>
-                            <strong>Период:</strong> {{ booking.start_date|date:"d.m.Y H:i" }} - {{ booking.end_date|date:"d.m.Y H:i" }}
-                        </p>
+        <div class="col-lg-8 mx-auto">
+            <!-- Информация о бронировании -->
+            <div class="booking-info-card">
+                <div class="row align-items-center position-relative">
+                    <div class="col-md-8">
+                        <h2 class="mb-3"><i class="bi bi-star-fill me-2"></i>Оставить отзыв</h2>
+                        <p class="mb-2 fs-5"><strong>Автомобиль:</strong> {{ booking.car.brand }} {{ booking.car.model }} ({{ booking.car.year }})</p>
+                        <p class="mb-2"><i class="bi bi-calendar me-2"></i> {{ booking.start_date|date:"d.m.Y H:i" }} - {{ booking.end_date|date:"d.m.Y H:i" }}</p>
+                        <p class="mb-0"><i class="bi bi-cash me-2"></i> <strong>{{ booking.calculated_price }} ₽</strong></p>
                     </div>
+                    <div class="col-md-4 text-center">
+                        <i class="bi bi-car-front-fill car-icon"></i>
+                    </div>
+                </div>
+            </div>
 
-                    <form method="post">
+            <!-- Форма отзыва -->
+            <div class="review-form-card">
+                <div class="review-form-header">
+                    <h3>Поделитесь впечатлениями</h3>
+                    <p>Ваш отзыв поможет другим пользователям сделать правильный выбор</p>
+                </div>
+
+                <div class="review-form-body">
+                    <form method="post" id="reviewForm">
                         {% csrf_token %}
 
-                        {% for field in form %}
-                        <div class="mb-3">
-                            <label class="form-label">{{ field.label }}</label>
-                            {{ field }}
-                            {% if field.help_text %}
-                            <small class="form-text text-muted">{{ field.help_text }}</small>
-                            {% endif %}
-                            {% if field.errors %}
-                            <div class="alert alert-danger mt-1">
-                                {{ field.errors }}
+                        <!-- Общая оценка -->
+                        <div class="form-group">
+                            <label for="{{ form.rating.id_for_label }}">
+                                {{ form.rating.label }} <span class="text-danger">*</span>
+                            </label>
+                            <div class="rating-container" id="rating-container">
+                                {% for radio in form.rating %}
+                                    <input type="radio" name="{{ form.rating.name }}"
+                                           id="{{ radio.id_for_label }}"
+                                           value="{{ radio.data.value }}"
+                                           class="rating-input"
+                                           {% if radio.data.selected %}checked{% endif %}>
+                                    <label for="{{ radio.id_for_label }}" class="rating-label" title="{{ radio.choice_label }} звезд">★</label>
+                                {% endfor %}
                             </div>
+                            {% if form.rating.help_text %}
+                                <small class="help-text">{{ form.rating.help_text }}</small>
                             {% endif %}
+                            {{ form.rating.errors }}
                         </div>
-                        {% endfor %}
 
-                        <button type="submit" class="btn btn-primary">Отправить отзыв</button>
-                        <a href="{% url 'booking_detail' booking.id %}" class="btn btn-secondary">Отмена</a>
+                        <!-- Оценка автомобиля -->
+                        <div class="form-group">
+                            <label for="{{ form.car_rating.id_for_label }}">{{ form.car_rating.label }}</label>
+                            <div class="rating-container" id="car-rating-container">
+                                {% for radio in form.car_rating %}
+                                    <input type="radio" name="{{ form.car_rating.name }}"
+                                           id="{{ radio.id_for_label }}"
+                                           value="{{ radio.data.value }}"
+                                           class="rating-input"
+                                           {% if radio.data.selected %}checked{% endif %}>
+                                    <label for="{{ radio.id_for_label }}" class="rating-label" title="{{ radio.choice_label }} звезд">★</label>
+                                {% endfor %}
+                            </div>
+                            {% if form.car_rating.help_text %}
+                                <small class="help-text">{{ form.car_rating.help_text }}</small>
+                            {% endif %}
+                            {{ form.car_rating.errors }}
+                        </div>
+
+                        <!-- Оценка партнера -->
+                        <div class="form-group">
+                            <label for="{{ form.partner_rating.id_for_label }}">{{ form.partner_rating.label }}</label>
+                            <div class="rating-container" id="partner-rating-container">
+                                {% for radio in form.partner_rating %}
+                                    <input type="radio" name="{{ form.partner_rating.name }}"
+                                           id="{{ radio.id_for_label }}"
+                                           value="{{ radio.data.value }}"
+                                           class="rating-input"
+                                           {% if radio.data.selected %}checked{% endif %}>
+                                    <label for="{{ radio.id_for_label }}" class="rating-label" title="{{ radio.choice_label }} звезд">★</label>
+                                {% endfor %}
+                            </div>
+                            {% if form.partner_rating.help_text %}
+                                <small class="help-text">{{ form.partner_rating.help_text }}</small>
+                            {% endif %}
+                            {{ form.partner_rating.errors }}
+                        </div>
+
+                        <!-- Комментарий -->
+                        <div class="form-group">
+                            <label for="{{ form.comment.id_for_label }}">
+                                {{ form.comment.label }} <span class="text-danger">*</span>
+                            </label>
+                            {{ form.comment }}
+                            <div class="char-counter text-muted" id="commentCounter">0 символов</div>
+                            {% if form.comment.help_text %}
+                                <small class="help-text">{{ form.comment.help_text }}</small>
+                            {% endif %}
+                            {{ form.comment.errors }}
+                        </div>
+
+                        <!-- Достоинства -->
+                        <div class="form-group">
+                            <label for="{{ form.advantages.id_for_label }}">{{ form.advantages.label }}</label>
+                            {{ form.advantages }}
+                            <div class="char-counter text-muted" id="advantagesCounter">0 символов</div>
+                            {% if form.advantages.help_text %}
+                                <small class="help-text">{{ form.advantages.help_text }}</small>
+                            {% endif %}
+                            {{ form.advantages.errors }}
+                        </div>
+
+                        <!-- Недостатки -->
+                        <div class="form-group">
+                            <label for="{{ form.disadvantages.id_for_label }}">{{ form.disadvantages.label }}</label>
+                            {{ form.disadvantages }}
+                            <div class="char-counter text-muted" id="disadvantagesCounter">0 символов</div>
+                            {% if form.disadvantages.help_text %}
+                                <small class="help-text">{{ form.disadvantages.help_text }}</small>
+                            {% endif %}
+                            {{ form.disadvantages.errors }}
+                        </div>
+
+                        <!-- Кнопки -->
+                        <div class="row mt-4">
+                            <div class="col-md-6 mb-3 mb-md-0">
+                                <button type="submit" class="btn-submit">
+                                    <i class="bi bi-check-circle me-2"></i>Отправить отзыв
+                                </button>
+                            </div>
+                            <div class="col-md-6">
+                                <a href="{% url 'booking_detail' booking.id %}" class="btn-cancel">
+                                    <i class="bi bi-x-circle me-2"></i>Отмена
+                                </a>
+                            </div>
+                        </div>
                     </form>
+                </div>
+            </div>
+
+            <!-- Подсказки -->
+            <div class="alert alert-info d-flex align-items-center">
+                <i class="bi bi-info-circle-fill fs-4 me-3"></i>
+                <div>
+                    <strong>Спасибо за ваш отзыв!</strong> Ваше мнение очень важно для нас и помогает улучшать качество сервиса. Все отзывы проходят модерацию.
                 </div>
             </div>
         </div>
     </div>
 </div>
+
+<!-- JavaScript -->
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Счетчики символов
+    const commentField = document.getElementById('{{ form.comment.id_for_label }}');
+    const advantagesField = document.getElementById('{{ form.advantages.id_for_label }}');
+    const disadvantagesField = document.getElementById('{{ form.disadvantages.id_for_label }}');
+
+    function updateCounter(field, counterId) {
+        const counter = document.getElementById(counterId);
+        if (field && counter) {
+            const length = field.value.length;
+            counter.textContent = length + ' символов';
+
+            if (length < 10 && field.id.includes('comment')) {
+                counter.style.color = '#dc3545';
+            } else if (length > 500 && field.id.includes('comment')) {
+                counter.style.color = '#ffc107';
+                counter.textContent = length + ' символов (макс. 500)';
+            } else {
+                counter.style.color = '#6c757d';
+            }
+        }
+    }
+
+    if (commentField) {
+        commentField.addEventListener('input', function() {
+            updateCounter(commentField, 'commentCounter');
+        });
+        updateCounter(commentField, 'commentCounter');
+    }
+
+    if (advantagesField) {
+        advantagesField.addEventListener('input', function() {
+            updateCounter(advantagesField, 'advantagesCounter');
+        });
+        updateCounter(advantagesField, 'advantagesCounter');
+    }
+
+    if (disadvantagesField) {
+        disadvantagesField.addEventListener('input', function() {
+            updateCounter(disadvantagesField, 'disadvantagesCounter');
+        });
+        updateCounter(disadvantagesField, 'disadvantagesCounter');
+    }
+
+    // Валидация формы
+    const form = document.getElementById('reviewForm');
+    form.addEventListener('submit', function(e) {
+        const rating = document.querySelector('input[name="rating"]:checked');
+        const comment = commentField;
+
+        if (!rating) {
+            e.preventDefault();
+            alert('Пожалуйста, поставьте общую оценку');
+            return;
+        }
+
+        if (!comment.value.trim()) {
+            e.preventDefault();
+            alert('Пожалуйста, напишите комментарий');
+            return;
+        }
+
+        if (comment.value.trim().length < 10) {
+            e.preventDefault();
+            alert('Комментарий должен содержать минимум 10 символов');
+            return;
+        }
+    });
+
+    // Анимация звезд
+    const ratingLabels = document.querySelectorAll('.rating-label');
+    ratingLabels.forEach(label => {
+        label.addEventListener('mouseenter', function() {
+            const allLabels = this.parentNode.querySelectorAll('.rating-label');
+            let found = false;
+            allLabels.forEach(l => {
+                if (l === this) found = true;
+                if (found) {
+                    l.style.transform = 'scale(1.1)';
+                }
+            });
+        });
+
+        label.addEventListener('mouseleave', function() {
+            const allLabels = this.parentNode.querySelectorAll('.rating-label');
+            allLabels.forEach(l => {
+                l.style.transform = 'scale(1)';
+            });
+        });
+    });
+});
+</script>
 {% endblock %}
