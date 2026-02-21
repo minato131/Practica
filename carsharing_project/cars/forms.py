@@ -68,40 +68,85 @@ class CarForm(forms.ModelForm):
 
 
 class BookingForm(forms.ModelForm):
-    start_date = forms.DateTimeField(
-        label='Дата начала',
-        widget=forms.DateTimeInput(attrs={'type': 'datetime-local'}),
-        input_formats=['%Y-%m-%dT%H:%M']
-    )
-    end_date = forms.DateTimeField(
-        label='Дата окончания',
-        widget=forms.DateTimeInput(attrs={'type': 'datetime-local'}),
-        input_formats=['%Y-%m-%dT%H:%M']
-    )
-
     class Meta:
         model = Booking
-        fields = ['start_date', 'end_date']
+        fields = ['start_date', 'end_date', 'car']
+        widgets = {
+            'start_date': forms.DateTimeInput(attrs={
+                'type': 'datetime-local',
+                'class': 'form-control',
+                'min': timezone.now().strftime('%Y-%m-%dT%H:%M')
+            }),
+            'end_date': forms.DateTimeInput(attrs={
+                'type': 'datetime-local',
+                'class': 'form-control',
+                'min': timezone.now().strftime('%Y-%m-%dT%H:%M')
+            }),
+            'car': forms.HiddenInput(),
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['car'].required = False
+
+    def clean_start_date(self):
+        start_date = self.cleaned_data.get('start_date')
+        if start_date:
+            # Делаем дату timezone-aware если она naive
+            if timezone.is_naive(start_date):
+                start_date = timezone.make_aware(start_date)
+
+            # Проверяем что дата не в прошлом
+            if start_date < timezone.now():
+                raise forms.ValidationError(
+                    "Дата начала не может быть в прошлом. Вы выбрали: %s" % start_date.strftime('%d.%m.%Y %H:%M'))
+        return start_date
+
+    def clean_end_date(self):
+        end_date = self.cleaned_data.get('end_date')
+        start_date = self.cleaned_data.get('start_date')
+
+        if end_date:
+            # Делаем дату timezone-aware если она naive
+            if timezone.is_naive(end_date):
+                end_date = timezone.make_aware(end_date)
+
+            # Проверяем что дата окончания не в прошлом
+            if end_date < timezone.now():
+                raise forms.ValidationError("Дата окончания не может быть в прошлом")
+
+            # Проверяем что дата окончания позже даты начала
+            if start_date and end_date <= start_date:
+                raise forms.ValidationError("Дата окончания должна быть позже даты начала")
+
+            # Проверяем минимальную продолжительность (минимум 1 час)
+            if start_date and (end_date - start_date).total_seconds() < 3600:
+                raise forms.ValidationError("Минимальная продолжительность бронирования - 1 час")
+
+        return end_date
 
     def clean(self):
         cleaned_data = super().clean()
         start_date = cleaned_data.get('start_date')
         end_date = cleaned_data.get('end_date')
+        car = cleaned_data.get('car')
 
-        if start_date and end_date:
-            if start_date >= end_date:
-                raise ValidationError('Дата окончания должна быть позже даты начала')
+        if not start_date or not end_date:
+            return cleaned_data
 
-            if start_date < timezone.now():
-                raise ValidationError('Нельзя бронировать на прошедшую дату')
+        # Проверяем пересечения с другими бронированиями
+        if car:
+            overlapping = Booking.objects.filter(
+                car=car,
+                start_date__lt=end_date,
+                end_date__gt=start_date,
+                status__name__in=['подтверждено', 'активно']
+            ).exists()
 
-            # Минимальная аренда - 1 час
-            duration = end_date - start_date
-            if duration.total_seconds() < 3600:
-                raise ValidationError('Минимальное время аренды - 1 час')
+            if overlapping:
+                raise forms.ValidationError("Автомобиль уже забронирован на выбранные даты")
 
         return cleaned_data
-
 
 class ReviewForm(forms.ModelForm):
     class Meta:
