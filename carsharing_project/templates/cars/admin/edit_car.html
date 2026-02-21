@@ -166,13 +166,17 @@
                         <div class="col-6 mb-3">
                             <div class="p-3 border rounded">
                                 <h5 class="mb-0">
-                                    {% with total=car.bookings.all|length %}
-                                        {% if total > 0 %}
-                                            {{ car.bookings.filter.status__name='завершено'|length|add:0 }}
-                                        {% else %}
-                                            0
-                                        {% endif %}
+                                {% with completed=car.bookings.all %}
+                                    {% with count=0 %}
+                                        {% for booking in completed %}
+                                            {% if booking.status.name == 'завершено' %}
+                                                {% with count=count|add:1 %}
+                                                {% endwith %}
+                                            {% endif %}
+                                        {% endfor %}
+                                        {{ count }}
                                     {% endwith %}
+                                {% endwith %}
                                 </h5>
                                 <small class="text-muted">Завершено</small>
                             </div>

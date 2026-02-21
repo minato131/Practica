@@ -116,29 +116,6 @@ def car_image_upload_path(instance, filename):
     # Возвращаем путь: cars/<car_id>/images/<filename>
     return os.path.join('cars', str(instance.car.id), 'images', filename)
 
-class CarImage(models.Model):
-    """Модель для изображений автомобиля"""
-    car = models.ForeignKey('Car', on_delete=models.CASCADE, related_name='images', verbose_name="Автомобиль")
-    image = models.ImageField(upload_to=car_image_upload_path, verbose_name="Изображение")
-    is_main = models.BooleanField(default=False, verbose_name="Главное изображение")
-    caption = models.CharField(max_length=200, blank=True, verbose_name="Подпись")
-    order = models.PositiveIntegerField(default=0, verbose_name="Порядок сортировки")
-    created_at = models.DateTimeField(auto_now_add=True, verbose_name="Дата добавления")
-
-    class Meta:
-        verbose_name = "Изображение автомобиля"
-        verbose_name_plural = "Изображения автомобилей"
-        ordering = ['order', 'created_at']
-
-    def __str__(self):
-        return f"Изображение для {self.car.brand} {self.car.model}"
-
-    def save(self, *args, **kwargs):
-        # Если это главное изображение, сбрасываем главные у других изображений этого автомобиля
-        if self.is_main:
-            CarImage.objects.filter(car=self.car, is_main=True).update(is_main=False)
-        super().save(*args, **kwargs)
-
 class Car(models.Model):
     brand = models.CharField(max_length=100)
     model = models.CharField(max_length=100)
@@ -168,7 +145,9 @@ class Car(models.Model):
         return self.status.name == 'доступен'
 
     def get_main_image(self):
-        """Возвращает URL главного изображения"""
+        if self.image:
+            return self.image.url
+        # Проверяем связанные изображения
         main_image = self.images.filter(is_main=True).first()
         if main_image:
             return main_image.image.url
@@ -178,7 +157,6 @@ class Car(models.Model):
         return '/static/images/no-image.png'
 
     def get_all_images(self):
-        """Возвращает все изображения автомобиля"""
         return self.images.all().order_by('order', 'created_at')
 
     def get_images_count(self):
@@ -216,6 +194,44 @@ class Car(models.Model):
         default='client',
         verbose_name='Роль'
     )
+
+class CarImage(models.Model):
+    """Модель для изображений автомобиля"""
+    car = models.ForeignKey(
+        Car,
+        on_delete=models.CASCADE,
+        related_name='images',
+        verbose_name="Автомобиль"
+    )
+    image = models.ImageField(
+        upload_to='car_images/',
+        verbose_name="Изображение"
+    )
+    is_main = models.BooleanField(
+        default=False,
+        verbose_name="Главное изображение"
+    )
+    caption = models.CharField(
+        max_length=200,
+        blank=True,
+        verbose_name="Подпись"
+    )
+    order = models.PositiveIntegerField(
+        default=0,
+        verbose_name="Порядок сортировки"
+    )
+    created_at = models.DateTimeField(
+        auto_now_add=True,
+        verbose_name="Дата добавления"
+    )
+
+    class Meta:
+        verbose_name = "Изображение автомобиля"
+        verbose_name_plural = "Изображения автомобилей"
+        ordering = ['order', 'created_at']
+
+    def __str__(self):
+        return f"Изображение для {self.car.brand} {self.car.model}"
 
 
 class BookingStatus(models.Model):

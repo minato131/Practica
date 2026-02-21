@@ -92,7 +92,11 @@ def user_logout(request):
 
 # Каталог автомобилей
 def car_list(request):
-    cars = Car.objects.filter(status__name='доступен')
+    cars = Car.objects.filter(status__name='доступен').select_related(
+        'transmission', 'category', 'status', 'partner'
+    ).prefetch_related(
+        'images'
+    ).order_by('-created_at')
 
     # Фильтрация
     category_id = request.GET.get('category')
@@ -686,6 +690,22 @@ def add_car(request):
 def edit_car(request, car_id):
     car = get_object_or_404(Car, id=car_id)
 
+    # Подсчитываем статистику
+    completed_bookings_count = Booking.objects.filter(
+        car=car,
+        status__name='завершено'
+    ).count()
+
+    active_bookings_count = Booking.objects.filter(
+        car=car,
+        status__name__in=['подтверждено', 'активно']
+    ).count()
+
+    total_revenue = Booking.objects.filter(
+        car=car,
+        status__name='завершено'
+    ).aggregate(total=Sum('calculated_price'))['total'] or 0
+
     if request.method == 'POST':
         form = CarForm(request.POST, request.FILES, instance=car)
         if form.is_valid():
@@ -698,6 +718,9 @@ def edit_car(request, car_id):
     context = {
         'form': form,
         'car': car,
+        'completed_bookings': completed_bookings_count,
+        'active_bookings': active_bookings_count,
+        'total_revenue': total_revenue,
     }
     return render(request, 'cars/admin/edit_car.html', context)
 
